@@ -1,5 +1,6 @@
 import { calculateQuestReward } from "../utils/gameRules";
 import type { Quest } from "../types";
+import { inferQuestSubject } from "../utils/subjects";
 import { QuestRewardPreview } from "./QuestRewardPreview";
 import { QuestStatusBadge } from "./QuestStatusBadge";
 
@@ -20,6 +21,7 @@ interface QuestCardProps {
 
 export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, gems }: QuestCardProps) {
   const reward = calculateQuestReward(quest);
+  const subject = inferQuestSubject(quest);
   const canOpenAcceptance = quest.status === "open";
   const canStart = quest.status === "accepted";
   const canReopen = quest.status === "cancelled";
@@ -37,7 +39,7 @@ export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, gems }
             <span className={`difficulty-mark difficulty-mark--${quest.difficulty}`}>{difficultyLabels[quest.difficulty]}</span>
             <QuestStatusBadge status={quest.status} />
           </div>
-          <span className="eyebrow">{quest.category}</span>
+          <span className="eyebrow">{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : quest.category}</span>
           <h3>{quest.title}</h3>
           {quest.note ? <p>{quest.note}</p> : null}
           {quest.status === "accepted" ? <small>Eine angenommene Quest ist der erste Schritt.</small> : null}

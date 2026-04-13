@@ -1,11 +1,11 @@
 import { initialProgress, initialQuests } from "../data/seed";
-import type { Quest, QuestStatus, SubjectId, SubjectPriority, UserProgress } from "../types";
+import type { Quest, QuestStatus, QuestType, Subject, SubjectId, SubjectPriority, UserProgress } from "../types";
 import { getLevelInfo, todayKey } from "./gameRules";
 
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
-const APP_DATA_VERSION = 2;
+const APP_DATA_VERSION = 3;
 
 interface StorageMeta {
   appDataVersion: number;
@@ -13,6 +13,8 @@ interface StorageMeta {
 }
 
 const validQuestStatuses: QuestStatus[] = ["open", "accepted", "in_progress", "completed", "cancelled"];
+const validQuestTypes: QuestType[] = ["study", "daily_quick"];
+const validSubjects: Subject[] = ["PB", "Deutsch", "Mathe", "Physik"];
 
 function readJson<T>(key: string, fallback: T): T {
   const stored = localStorage.getItem(key);
@@ -43,16 +45,30 @@ function clampNumber(value: unknown, fallback = 0): number {
 function normalizeQuest(quest: Quest): Quest {
   const migratedStatus = quest.status === ("active" as QuestStatus) ? "in_progress" : quest.status;
   const status = validQuestStatuses.includes(migratedStatus) ? migratedStatus : "open";
+  const type = validQuestTypes.includes(quest.type) ? quest.type : "study";
+  const subject = quest.subject && validSubjects.includes(quest.subject) ? quest.subject : inferSubjectFromCategory(quest.category);
 
   return {
     ...quest,
     id: quest.id || crypto.randomUUID(),
+    type,
     title: quest.title?.trim() || "Unbenannte Quest",
     category: quest.category?.trim() || "Allgemein",
+    subject,
+    topic: quest.topic?.trim() || undefined,
     durationMinutes: Math.max(1, Number(quest.durationMinutes) || 25),
     status,
     createdAt: quest.createdAt || new Date().toISOString(),
   };
+}
+
+function inferSubjectFromCategory(category = ""): Subject | undefined {
+  const normalized = category.toLowerCase();
+  if (normalized.includes("pb") || normalized.includes("politik")) return "PB";
+  if (normalized.includes("deutsch")) return "Deutsch";
+  if (normalized.includes("mathe")) return "Mathe";
+  if (normalized.includes("physik")) return "Physik";
+  return undefined;
 }
 
 function ensureMeta(): void {
@@ -77,7 +93,10 @@ function normalizeSubjectPriority(id: SubjectId, storedPriority: SubjectPriority
 export function loadQuests(): Quest[] {
   ensureMeta();
   const stored = readJson<Quest[]>(QUESTS_KEY, initialQuests);
-  return (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests).map(normalizeQuest);
+  const normalized = (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests).map(normalizeQuest);
+  const existingIds = new Set(normalized.map((quest) => quest.id));
+  const missingSeedQuests = initialQuests.filter((quest) => !existingIds.has(quest.id)).map(normalizeQuest);
+  return [...missingSeedQuests, ...normalized];
 }
 
 export function saveQuests(quests: Quest[]): void {
@@ -121,6 +140,8 @@ export function loadProgress(): UserProgress {
     chestOpenDates: Array.isArray(stored.chestOpenDates) ? stored.chestOpenDates : [],
     dailyGoalProgress: stored.dailyGoalProgress ?? {},
     weeklyGoalProgress: stored.weeklyGoalProgress ?? {},
+    dailyQuickQuestStates: stored.dailyQuickQuestStates ?? {},
+    dailyQuickBonusDates: Array.isArray(stored.dailyQuickBonusDates) ? stored.dailyQuickBonusDates : [],
     sessionHistory: Array.isArray(stored.sessionHistory) ? stored.sessionHistory : [],
     subjectPriorities: Array.isArray(stored.subjectPriorities)
       ? initialProgress.subjectPriorities.map((subject) => ({

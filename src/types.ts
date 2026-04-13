@@ -1,5 +1,7 @@
 export type Difficulty = "easy" | "medium" | "hard";
 
+export type QuestType = "study" | "daily_quick";
+
 export type QuestStatus = "open" | "accepted" | "in_progress" | "completed" | "cancelled";
 
 export type ShopSection = "standard" | "premium";
@@ -12,6 +14,8 @@ export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "
 
 export type SubjectId = "pb" | "mathe" | "deutsch" | "physik";
 
+export type Subject = "PB" | "Deutsch" | "Mathe" | "Physik";
+
 export type SubjectPriority = "high" | "medium" | "low" | "paused";
 
 export interface SubjectPrioritySetting {
@@ -22,8 +26,11 @@ export interface SubjectPrioritySetting {
 
 export interface Quest {
   id: string;
+  type: QuestType;
   title: string;
   category: string;
+  subject?: Subject;
+  topic?: string;
   durationMinutes: number;
   difficulty: Difficulty;
   note?: string;
@@ -34,6 +41,34 @@ export interface Quest {
   completedAt?: string;
   cancelledAt?: string;
   reflection?: ReflectionData;
+}
+
+export interface AnswerOption {
+  id: string;
+  text: string;
+}
+
+export type AnswerOptionSet = [AnswerOption, AnswerOption, AnswerOption, AnswerOption];
+
+export interface MultipleChoiceQuestion {
+  id: string;
+  type: "daily_quick";
+  subject: Subject;
+  topic: string;
+  question: string;
+  options: AnswerOptionSet;
+  correctOptionId: string;
+  explanation: string;
+}
+
+export type DailyQuickAnswerStatus = "unanswered" | "correct" | "incorrect";
+
+export interface DailyQuickQuestState {
+  questionId: string;
+  dateKey: string;
+  status: DailyQuickAnswerStatus;
+  selectedOptionId?: string;
+  answeredAt?: string;
 }
 
 export interface UserProgress {
@@ -60,6 +95,8 @@ export interface UserProgress {
   chestOpenDates: string[];
   dailyGoalProgress: Record<string, DailyGoalProgress>;
   weeklyGoalProgress: Record<string, WeeklyGoalProgress>;
+  dailyQuickQuestStates: Record<string, Record<string, DailyQuickQuestState>>;
+  dailyQuickBonusDates: string[];
   sessionHistory: SessionHistoryEntry[];
   subjectPriorities: SubjectPrioritySetting[];
 }

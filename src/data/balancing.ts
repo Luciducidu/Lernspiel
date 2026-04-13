@@ -18,6 +18,13 @@ export const questRewardTable: Record<Difficulty, { coins: number; xp: number }>
 
 export const completionBonusCoins = 15;
 
+export const dailyQuickQuestConfig = {
+  questsPerDay: 5,
+  correctCoins: 10,
+  correctXp: 5,
+  allAnsweredBonusCoins: 20,
+};
+
 export const reflectionBonus = {
   prepared: true,
   coins: 10,

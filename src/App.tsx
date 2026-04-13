@@ -3,6 +3,7 @@ import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
 import { CompletionModal } from "./components/CompletionModal";
+import { DailyQuickQuestCard } from "./components/DailyQuickQuestCard";
 import { DailyGoalCard } from "./components/DailyGoalCard";
 import { GemActionPanel } from "./components/GemActionPanel";
 import { LevelProgressCard } from "./components/LevelProgressCard";
@@ -19,9 +20,25 @@ import { SubjectPriorityCard } from "./components/SubjectPriorityCard";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { gemSpecialActions } from "./data/balancing";
+import { subjectOptions, subjectTopics } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { usePersistentState } from "./hooks/usePersistentState";
-import type { AppPage, ChestReward, CompletionSummary, Difficulty, Quest, ReflectionData, ShopItem, SubjectPriority, SubjectPrioritySetting } from "./types";
+import type {
+  AppPage,
+  ChestReward,
+  CompletionSummary,
+  Difficulty,
+  MultipleChoiceQuestion,
+  Quest,
+  QuestStatus,
+  QuestType,
+  ReflectionData,
+  ShopItem,
+  Subject,
+  SubjectPriority,
+  SubjectPrioritySetting,
+} from "./types";
+import { answerDailyQuickQuest, getDailyQuickQuestionsForDate, getDailyQuickState } from "./utils/dailyQuick";
 import {
   applyChestReward,
   applyAvailableGoalRewards,
@@ -36,13 +53,15 @@ import {
   rerollQuest,
   spendCoins,
   spendGems,
+  todayKey,
 } from "./utils/gameRules";
 import { loadProgress, loadQuests, saveProgress, saveQuests } from "./utils/storage";
-import { getSubjectFocusText } from "./utils/subjects";
+import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
 
 const emptyForm = {
   title: "",
-  category: "",
+  subject: "Deutsch" as Subject,
+  topic: "Analyse",
   durationMinutes: 25,
   difficulty: "easy" as Difficulty,
   note: "",
@@ -52,8 +71,12 @@ function App() {
   const [quests, setQuests] = usePersistentState<Quest[]>(loadQuests, saveQuests);
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
-  const [questTab, setQuestTab] = useState<"open" | "accepted" | "completed">("open");
+  const [questTab, setQuestTab] = useState<"daily" | "open" | "accepted" | "completed">("daily");
   const [progressTab, setProgressTab] = useState<"overview" | "goals" | "stats" | "history" | "unlocks">("overview");
+  const [subjectFilter, setSubjectFilter] = useState<"all" | Subject>("all");
+  const [questTypeFilter, setQuestTypeFilter] = useState<"all" | QuestType>("all");
+  const [difficultyFilter, setDifficultyFilter] = useState<"all" | Difficulty>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | QuestStatus>("all");
   const [questDraft, setQuestDraft] = useState(emptyForm);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
@@ -82,9 +105,27 @@ function App() {
     nextWeeklyGoal,
   } = useAppDerivedState(quests, progress, activeQuestId);
   const subjectFocus = getSubjectFocusText(progress.subjectPriorities);
-  const openQuestList = sortedQuests.filter((quest) => quest.status === "open" || quest.status === "cancelled");
-  const acceptedQuestList = sortedQuests.filter((quest) => quest.status === "accepted" || quest.status === "in_progress");
-  const completedQuestList = sortedQuests.filter((quest) => quest.status === "completed");
+  const todaysDateKey = todayKey();
+  const dailyQuickQuestionsForToday = getDailyQuickQuestionsForDate(progress.subjectPriorities, todaysDateKey);
+  const dailyQuickQuestionIds = dailyQuickQuestionsForToday.map((question) => question.id);
+  const filteredDailyQuickQuestions = dailyQuickQuestionsForToday.filter(
+    (question) => subjectFilter === "all" || question.subject === subjectFilter,
+  );
+  const dailyQuickAnsweredCount = dailyQuickQuestionsForToday.filter((question) =>
+    Boolean(getDailyQuickState(progress, question.id, todaysDateKey)?.answeredAt),
+  ).length;
+  const topicOptions = subjectTopics[questDraft.subject];
+  const filteredStudyQuests = sortedQuests.filter((quest) => {
+    const questSubject = inferQuestSubject(quest);
+    return (
+      (subjectFilter === "all" || questSubject === subjectFilter) &&
+      (difficultyFilter === "all" || quest.difficulty === difficultyFilter) &&
+      (statusFilter === "all" || quest.status === statusFilter)
+    );
+  });
+  const openQuestList = filteredStudyQuests.filter((quest) => quest.status === "open" || quest.status === "cancelled");
+  const acceptedQuestList = filteredStudyQuests.filter((quest) => quest.status === "accepted" || quest.status === "in_progress");
+  const completedQuestList = filteredStudyQuests.filter((quest) => quest.status === "completed");
   const chestItems = [...standardItems, ...premiumItems].filter((item) => item.isLuckyChest);
   const standardRewardItems = standardItems.filter((item) => !item.isLuckyChest);
   const premiumRewardItems = premiumItems.filter((item) => !item.isLuckyChest);
@@ -96,9 +137,9 @@ function App() {
   function handleCreateQuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = questDraft.title.trim();
-    const category = questDraft.category.trim();
+    const topic = questDraft.topic.trim();
 
-    if (!title || !category || questDraft.durationMinutes < 1) {
+    if (!title || !topic || questDraft.durationMinutes < 1) {
       setToast("Titel, Fach und Dauer werden benötigt.");
       return;
     }
@@ -106,7 +147,10 @@ function App() {
     const newQuest: Quest = {
       id: crypto.randomUUID(),
       title,
-      category,
+      type: "study",
+      category: questDraft.subject,
+      subject: questDraft.subject,
+      topic,
       durationMinutes: questDraft.durationMinutes,
       difficulty: questDraft.difficulty,
       note: questDraft.note.trim() || undefined,
@@ -230,10 +274,16 @@ function App() {
       return;
     }
 
-    const nextQuest = rerollQuest(quest);
+    const nextQuest = rerollQuest(quest, progress.subjectPriorities);
     setQuests((current) => current.map((item) => (item.id === quest.id ? nextQuest : item)));
     setProgress((current) => spendGems(current, 1));
     setToast("Quest neu gewürfelt. Prüfe sie und nimm sie bewusst an.");
+  }
+
+  function handleAnswerDailyQuick(question: MultipleChoiceQuestion, optionId: string) {
+    const result = answerDailyQuickQuest(progress, question, optionId, dailyQuickQuestionIds, todaysDateKey);
+    setProgress(result.progress);
+    setToast(result.message);
   }
 
   function handleBuyItem(item: ShopItem) {
@@ -296,6 +346,22 @@ function App() {
     ));
   }
 
+  function renderDailyQuickList(list: MultipleChoiceQuestion[], compact = false) {
+    if (list.length === 0) {
+      return <p className="empty-state">Keine Daily Quick Quest passt zu diesem Filter.</p>;
+    }
+
+    return list.map((question) => (
+      <DailyQuickQuestCard
+        key={question.id}
+        question={question}
+        state={getDailyQuickState(progress, question.id, todaysDateKey)}
+        compact={compact}
+        onAnswer={handleAnswerDailyQuick}
+      />
+    ));
+  }
+
   const pageTitle: Record<AppPage, string> = {
     dashboard: "Dashboard",
     quests: "Quests",
@@ -339,6 +405,23 @@ function App() {
                 {nextDailyGoal ? <DailyGoalCard goal={nextDailyGoal} /> : <p>Alle Tagesziele erledigt.</p>}
               </article>
             </section>
+            <section className="content-card daily-quick-section">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">Daily Quick Quests</span>
+                  <h2>Kurze Abi-Wiederholung</h2>
+                </div>
+                <span className="daily-quick-counter">
+                  {dailyQuickAnsweredCount}/{dailyQuickQuestionsForToday.length} heute
+                </span>
+              </div>
+              <div className="daily-quick-grid daily-quick-grid--compact">
+                {renderDailyQuickList(dailyQuickQuestionsForToday.slice(0, 3), true)}
+              </div>
+              <button className="button button--ghost" type="button" onClick={() => { setActivePage("quests"); setQuestTab("daily"); }}>
+                Alle Daily Quick Quests
+              </button>
+            </section>
             <section className="dashboard-summary-grid">
               <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
               <DashboardCard label="Fokus heute" value={`${focusSummary.todayMinutes} Min`} detail="für Tagesziele" />
@@ -378,12 +461,29 @@ function App() {
                   />
                 </label>
                 <label>
-                  Fach / Kategorie
-                  <input
-                    value={questDraft.category}
-                    onChange={(event) => setQuestDraft({ ...questDraft, category: event.target.value })}
-                    placeholder="z. B. Mathe"
-                  />
+                  Fach
+                  <select
+                    value={questDraft.subject}
+                    onChange={(event) => {
+                      const subject = event.target.value as Subject;
+                      setQuestDraft({ ...questDraft, subject, topic: subjectTopics[subject][0] });
+                    }}
+                  >
+                    {subjectOptions.map((subject) => (
+                      <option key={subject} value={subject}>{subject}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Thema / Unterbereich
+                  <select
+                    value={questDraft.topic}
+                    onChange={(event) => setQuestDraft({ ...questDraft, topic: event.target.value })}
+                  >
+                    {topicOptions.map((topic) => (
+                      <option key={topic} value={topic}>{topic}</option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Dauer in Minuten
@@ -432,18 +532,71 @@ function App() {
             <section className="content-card">
               <div className="section-heading">
                 <span className="eyebrow">Quest-Liste</span>
-                <h2>Nach Status sortiert</h2>
+                <h2>Abi-Quests und Daily Quick Quests</h2>
+              </div>
+              <div className="quest-filter-bar" aria-label="Quest-Filter">
+                <label>
+                  Fach
+                  <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value as "all" | Subject)}>
+                    <option value="all">Alle Faecher</option>
+                    {subjectOptions.map((subject) => (
+                      <option key={subject} value={subject}>{subject}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Questtyp
+                  <select
+                    value={questTypeFilter}
+                    onChange={(event) => {
+                      const nextType = event.target.value as "all" | QuestType;
+                      setQuestTypeFilter(nextType);
+                      if (nextType === "daily_quick") setQuestTab("daily");
+                      if (nextType === "study" && questTab === "daily") setQuestTab("open");
+                    }}
+                  >
+                    <option value="all">Alle Typen</option>
+                    <option value="study">Lernquests</option>
+                    <option value="daily_quick">Daily Quick Quests</option>
+                  </select>
+                </label>
+                <label>
+                  Schwierigkeit
+                  <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "all" | Difficulty)}>
+                    <option value="all">Alle</option>
+                    <option value="easy">leicht</option>
+                    <option value="medium">mittel</option>
+                    <option value="hard">schwer</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as "all" | QuestStatus)}>
+                    <option value="all">Alle</option>
+                    <option value="open">offen</option>
+                    <option value="accepted">angenommen</option>
+                    <option value="in_progress">laeuft</option>
+                    <option value="completed">abgeschlossen</option>
+                    <option value="cancelled">abgebrochen</option>
+                  </select>
+                </label>
               </div>
               <div className="tabs" role="tablist" aria-label="Quest-Filter">
+                <button className={questTab === "daily" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("daily")}>Daily</button>
                 <button className={questTab === "open" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("open")}>Offen</button>
                 <button className={questTab === "accepted" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("accepted")}>Angenommen</button>
                 <button className={questTab === "completed" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("completed")}>Abgeschlossen</button>
               </div>
-              <div className="quest-list">
-                {questTab === "open" ? renderQuestList(openQuestList) : null}
-                {questTab === "accepted" ? renderQuestList(acceptedQuestList) : null}
-                {questTab === "completed" ? renderQuestList(completedQuestList) : null}
-              </div>
+              {questTab === "daily" || questTypeFilter === "daily_quick" ? (
+                <div className="daily-quick-grid">{renderDailyQuickList(filteredDailyQuickQuestions)}</div>
+              ) : null}
+              {questTypeFilter !== "daily_quick" && questTab !== "daily" ? (
+                <div className="quest-list">
+                  {questTab === "open" ? renderQuestList(openQuestList) : null}
+                  {questTab === "accepted" ? renderQuestList(acceptedQuestList) : null}
+                  {questTab === "completed" ? renderQuestList(completedQuestList) : null}
+                </div>
+              ) : null}
             </section>
           </div>
         ) : null}

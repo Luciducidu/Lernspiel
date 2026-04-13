@@ -1,4 +1,4 @@
-import type { SubjectPriority, SubjectPrioritySetting } from "../types";
+import type { Quest, Subject, SubjectId, SubjectPriority, SubjectPrioritySetting } from "../types";
 
 export const priorityLabels: Record<SubjectPriority, string> = {
   high: "hoch",
@@ -6,6 +6,33 @@ export const priorityLabels: Record<SubjectPriority, string> = {
   low: "niedrig",
   paused: "zurückgestellt",
 };
+
+export const subjectIdToName: Record<SubjectId, Subject> = {
+  pb: "PB",
+  deutsch: "Deutsch",
+  mathe: "Mathe",
+  physik: "Physik",
+};
+
+export const subjectNameToId: Record<Subject, SubjectId> = {
+  PB: "pb",
+  Deutsch: "deutsch",
+  Mathe: "mathe",
+  Physik: "physik",
+};
+
+export function inferQuestSubject(quest: Pick<Quest, "subject" | "category">): Subject | undefined {
+  if (quest.subject) {
+    return quest.subject;
+  }
+
+  const category = quest.category.toLowerCase();
+  if (category.includes("pb") || category.includes("politik")) return "PB";
+  if (category.includes("deutsch")) return "Deutsch";
+  if (category.includes("mathe")) return "Mathe";
+  if (category.includes("physik")) return "Physik";
+  return undefined;
+}
 
 export function getSubjectFocusText(subjects: SubjectPrioritySetting[]) {
   const high = subjects.filter((subject) => subject.priority === "high").map((subject) => subject.label);

@@ -1,36 +1,11 @@
 import type { Quest, UserProgress } from "../types";
+import { createQuestFromTemplate, studyQuestTemplates } from "./questContent";
 
-export const initialQuests: Quest[] = [
-  {
-    id: "quest-mathe-1",
-    title: "Bruchrechnen wiederholen",
-    category: "Mathe",
-    durationMinutes: 25,
-    difficulty: "medium",
-    note: "Erst Regeln sammeln, dann 8 Aufgaben lösen.",
-    status: "open",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "quest-englisch-1",
-    title: "20 Vokabeln aktiv abfragen",
-    category: "Englisch",
-    durationMinutes: 15,
-    difficulty: "easy",
-    status: "open",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "quest-bio-1",
-    title: "Zellatmung als Skizze erklären",
-    category: "Biologie",
-    durationMinutes: 35,
-    difficulty: "hard",
-    note: "Mit Pfeilen und eigenen Worten.",
-    status: "open",
-    createdAt: new Date().toISOString(),
-  },
-];
+const initialQuestTemplateIndexes = [0, 2, 4, 10, 13, 16, 20, 22, 26, 28];
+
+export const initialQuests: Quest[] = initialQuestTemplateIndexes.map((templateIndex, index) =>
+  createQuestFromTemplate(studyQuestTemplates[templateIndex], index),
+);
 
 export const initialProgress: UserProgress = {
   coins: 120,
@@ -55,6 +30,8 @@ export const initialProgress: UserProgress = {
   chestOpenDates: [],
   dailyGoalProgress: {},
   weeklyGoalProgress: {},
+  dailyQuickQuestStates: {},
+  dailyQuickBonusDates: [],
   sessionHistory: [],
   subjectPriorities: [
     { id: "pb", label: "PB", priority: "high" },

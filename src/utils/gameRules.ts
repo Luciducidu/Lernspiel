@@ -4,9 +4,9 @@ import {
   dailyGoalDefinitions,
   levelUnlocks,
   questRewardTable,
-  questTemplates,
   weeklyGoalDefinitions,
 } from "../data/balancing";
+import { studyQuestTemplates } from "../data/questContent";
 import type {
   ChestReward,
   ChestTier,
@@ -21,6 +21,9 @@ import type {
   ShopItem,
   StatsSummary,
   StreakState,
+  Subject,
+  SubjectPriority,
+  SubjectPrioritySetting,
   UserProgress,
 } from "../types";
 
@@ -388,12 +391,45 @@ export function rescueStreak(progress: UserProgress): { progress: UserProgress; 
   return { progress: next, ok: true, message: "Streak gerettet. Der verpasste Tag wurde geschützt." };
 }
 
-export function rerollQuest(quest: Quest): Quest {
-  const template = questTemplates[Math.floor(Math.random() * questTemplates.length)];
+const subjectPriorityIds: Record<Subject, SubjectPrioritySetting["id"]> = {
+  PB: "pb",
+  Deutsch: "deutsch",
+  Mathe: "mathe",
+  Physik: "physik",
+};
+
+const rerollPriorityWeights: Record<SubjectPriority, number> = {
+  high: 5,
+  medium: 3,
+  low: 1,
+  paused: 0.35,
+};
+
+function getSubjectPriorityWeight(subject: Subject, priorities: SubjectPrioritySetting[]): number {
+  const priorityId = subjectPriorityIds[subject];
+  const priority = priorities.find((item) => item.id === priorityId)?.priority ?? "medium";
+  return rerollPriorityWeights[priority];
+}
+
+export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] = []): Quest {
+  const weightedTemplates = studyQuestTemplates.map((template) => ({
+    template,
+    weight: getSubjectPriorityWeight(template.subject, priorities),
+  }));
+  const totalWeight = weightedTemplates.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * Math.max(1, totalWeight);
+  const picked =
+    weightedTemplates.find((item) => {
+      roll -= item.weight;
+      return roll <= 0;
+    }) ?? weightedTemplates[0];
+  const template = picked.template;
+
   return {
     ...quest,
     ...template,
     id: crypto.randomUUID(),
+    type: "study",
     createdAt: new Date().toISOString(),
     status: "open",
     acceptedAt: undefined,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Quest } from "../types";
 import { useModalA11y } from "../hooks/useModalA11y";
 import { calculateQuestReward } from "../utils/gameRules";
+import { inferQuestSubject } from "../utils/subjects";
 import { QuestRewardPreview } from "./QuestRewardPreview";
 
 const difficultyLabels: Record<Quest["difficulty"], string> = {
@@ -26,6 +27,7 @@ export function QuestAcceptModal({ quest, onAccept, onDecline }: QuestAcceptModa
 
   const reward = calculateQuestReward(quest);
   const currentQuest = quest;
+  const subject = inferQuestSubject(quest);
 
   function handleAccept() {
     setIsAccepting(true);
@@ -51,7 +53,7 @@ export function QuestAcceptModal({ quest, onAccept, onDecline }: QuestAcceptModa
 
         <div className="quest-accept__brief">
           <strong>{quest.title}</strong>
-          <span>{quest.category}</span>
+          <span>{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : quest.category}</span>
           <span>{quest.durationMinutes} Min.</span>
           <span>{difficultyLabels[quest.difficulty]}</span>
         </div>
