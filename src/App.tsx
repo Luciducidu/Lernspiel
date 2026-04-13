@@ -41,8 +41,6 @@ const emptyForm = {
   note: "",
 };
 
-const placeboCodeLine = "no gameplay effect";
-
 function App() {
   const [quests, setQuests] = usePersistentState<Quest[]>(loadQuests, saveQuests);
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
