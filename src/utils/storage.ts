@@ -1,5 +1,5 @@
 import { initialProgress, initialQuests } from "../data/seed";
-import type { Quest, QuestStatus, UserProgress } from "../types";
+import type { Quest, QuestStatus, SubjectId, SubjectPriority, UserProgress } from "../types";
 import { getLevelInfo, todayKey } from "./gameRules";
 
 const QUESTS_KEY = "lernquest.quests";
@@ -62,6 +62,18 @@ function ensureMeta(): void {
   }
 }
 
+function normalizeSubjectPriority(id: SubjectId, storedPriority: SubjectPriority | undefined): SubjectPriority {
+  if (id === "deutsch" && (!storedPriority || storedPriority === "medium")) {
+    return "high";
+  }
+
+  if (id === "physik" && (!storedPriority || storedPriority === "low")) {
+    return "paused";
+  }
+
+  return storedPriority ?? initialProgress.subjectPriorities.find((subject) => subject.id === id)?.priority ?? "medium";
+}
+
 export function loadQuests(): Quest[] {
   ensureMeta();
   const stored = readJson<Quest[]>(QUESTS_KEY, initialQuests);
@@ -113,7 +125,10 @@ export function loadProgress(): UserProgress {
     subjectPriorities: Array.isArray(stored.subjectPriorities)
       ? initialProgress.subjectPriorities.map((subject) => ({
           ...subject,
-          priority: stored.subjectPriorities?.find((item) => item.id === subject.id)?.priority ?? subject.priority,
+          priority: normalizeSubjectPriority(
+            subject.id,
+            stored.subjectPriorities?.find((item) => item.id === subject.id)?.priority,
+          ),
         }))
       : initialProgress.subjectPriorities,
   };

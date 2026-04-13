@@ -59,7 +59,7 @@ export const initialProgress: UserProgress = {
   subjectPriorities: [
     { id: "pb", label: "PB", priority: "high" },
     { id: "mathe", label: "Mathe", priority: "high" },
-    { id: "deutsch", label: "Deutsch", priority: "medium" },
-    { id: "physik", label: "Physik", priority: "low" },
+    { id: "deutsch", label: "Deutsch", priority: "high" },
+    { id: "physik", label: "Physik", priority: "paused" },
   ],
 };

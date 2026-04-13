@@ -23,7 +23,8 @@ export function SettingsPanel({ subjects, onChangePriority }: SettingsPanelProps
             <span>
               <strong>{subject.label}</strong>
               {subject.id === "pb" ? <small>bereit für große Oberbereiche wie Demokratie, EU, Wirtschaft und Methodik</small> : null}
-              {subject.id === "physik" ? <small>kann aktuell niedriger priorisiert oder zurückgestellt werden</small> : null}
+              {subject.id === "deutsch" ? <small>erste Klausur: aktuell hoch priorisieren</small> : null}
+              {subject.id === "physik" ? <small>aktuell sehr niedrig priorisiert oder zurückgestellt</small> : null}
             </span>
             <select value={subject.priority} onChange={(event) => onChangePriority(subject.id, event.target.value as SubjectPriority)}>
               {(Object.keys(priorityLabels) as SubjectPriority[]).map((priority) => (
