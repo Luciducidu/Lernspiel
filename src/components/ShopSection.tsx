@@ -4,7 +4,7 @@ import { ShopItemCard } from "./ShopItemCard";
 interface ShopSectionProps {
   title: string;
   eyebrow: string;
-  variant: "standard" | "premium";
+  variant: "standard" | "premium" | "chests";
   items: ShopItem[];
   coins: number;
   level: number;

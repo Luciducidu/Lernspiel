@@ -8,6 +8,18 @@ export type ChestTier = "bronze" | "silver" | "gold";
 
 export type RewardCurrency = "coins" | "gems";
 
+export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "settings";
+
+export type SubjectId = "pb" | "mathe" | "deutsch" | "physik";
+
+export type SubjectPriority = "high" | "medium" | "low" | "paused";
+
+export interface SubjectPrioritySetting {
+  id: SubjectId;
+  label: string;
+  priority: SubjectPriority;
+}
+
 export interface Quest {
   id: string;
   title: string;
@@ -49,6 +61,7 @@ export interface UserProgress {
   dailyGoalProgress: Record<string, DailyGoalProgress>;
   weeklyGoalProgress: Record<string, WeeklyGoalProgress>;
   sessionHistory: SessionHistoryEntry[];
+  subjectPriorities: SubjectPrioritySetting[];
 }
 
 export interface ShopItem {

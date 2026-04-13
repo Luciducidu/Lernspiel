@@ -1,21 +1,27 @@
 import { FormEvent, useState } from "react";
+import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { DashboardCard } from "./components/DashboardCard";
+import { DashboardHero } from "./components/DashboardHero";
 import { CompletionModal } from "./components/CompletionModal";
 import { DailyGoalCard } from "./components/DailyGoalCard";
 import { GemActionPanel } from "./components/GemActionPanel";
+import { LevelProgressCard } from "./components/LevelProgressCard";
 import { LuckyChestModal } from "./components/LuckyChestModal";
 import { ProgressBar } from "./components/ProgressBar";
 import { QuestAcceptModal } from "./components/QuestAcceptModal";
 import { QuestCard } from "./components/QuestCard";
+import { SettingsPanel } from "./components/SettingsPanel";
 import { SessionHistory } from "./components/SessionHistory";
 import { ShopSection } from "./components/ShopSection";
+import { SidebarNavigation } from "./components/SidebarNavigation";
 import { StatsPanel } from "./components/StatsPanel";
+import { SubjectPriorityCard } from "./components/SubjectPriorityCard";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { gemSpecialActions } from "./data/balancing";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { usePersistentState } from "./hooks/usePersistentState";
-import type { ChestReward, CompletionSummary, Difficulty, Quest, ReflectionData, ShopItem } from "./types";
+import type { AppPage, ChestReward, CompletionSummary, Difficulty, Quest, ReflectionData, ShopItem, SubjectPriority, SubjectPrioritySetting } from "./types";
 import {
   applyChestReward,
   applyAvailableGoalRewards,
@@ -32,6 +38,7 @@ import {
   spendGems,
 } from "./utils/gameRules";
 import { loadProgress, loadQuests, saveProgress, saveQuests } from "./utils/storage";
+import { getSubjectFocusText } from "./utils/subjects";
 
 const emptyForm = {
   title: "",
@@ -44,6 +51,9 @@ const emptyForm = {
 function App() {
   const [quests, setQuests] = usePersistentState<Quest[]>(loadQuests, saveQuests);
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
+  const [activePage, setActivePage] = useState<AppPage>("dashboard");
+  const [questTab, setQuestTab] = useState<"open" | "accepted" | "completed">("open");
+  const [progressTab, setProgressTab] = useState<"overview" | "goals" | "stats" | "history" | "unlocks">("overview");
   const [questDraft, setQuestDraft] = useState(emptyForm);
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
@@ -71,6 +81,13 @@ function App() {
     nextDailyGoal,
     nextWeeklyGoal,
   } = useAppDerivedState(quests, progress, activeQuestId);
+  const subjectFocus = getSubjectFocusText(progress.subjectPriorities);
+  const openQuestList = sortedQuests.filter((quest) => quest.status === "open" || quest.status === "cancelled");
+  const acceptedQuestList = sortedQuests.filter((quest) => quest.status === "accepted" || quest.status === "in_progress");
+  const completedQuestList = sortedQuests.filter((quest) => quest.status === "completed");
+  const chestItems = [...standardItems, ...premiumItems].filter((item) => item.isLuckyChest);
+  const standardRewardItems = standardItems.filter((item) => !item.isLuckyChest);
+  const premiumRewardItems = premiumItems.filter((item) => !item.isLuckyChest);
 
   function updateQuest(questId: string, update: Partial<Quest>) {
     setQuests((current) => current.map((quest) => (quest.id === questId ? { ...quest, ...update } : quest)));
@@ -100,6 +117,7 @@ function App() {
     setQuests((current) => [newQuest, ...current]);
     setQuestDraft(emptyForm);
     setToast("Neue Quest erstellt. Tippe sie an, um sie bewusst anzunehmen.");
+    setQuestTab("open");
   }
 
   function handleAcceptQuest(quest: Quest) {
@@ -132,6 +150,7 @@ function App() {
     );
     setProgress((current) => applyQuestStart(current));
     setActiveQuestId(quest.id);
+    setActivePage("focus");
     setToast("Fokusmodus gestartet.");
   }
 
@@ -251,260 +270,312 @@ function App() {
     setToast(reward ? `${item.name} geöffnet: ${reward.title}.` : `${item.name} gekauft.`);
   }
 
+  function handleChangeSubjectPriority(id: SubjectPrioritySetting["id"], priority: SubjectPriority) {
+    setProgress((current) => ({
+      ...current,
+      subjectPriorities: current.subjectPriorities.map((subject) => (subject.id === id ? { ...subject, priority } : subject)),
+    }));
+    setToast("Fach-Priorisierung gespeichert.");
+  }
+
+  function renderQuestList(list: Quest[]) {
+    if (list.length === 0) {
+      return <p className="empty-state">In diesem Bereich gibt es gerade keine Quests.</p>;
+    }
+
+    return list.map((quest) => (
+      <QuestCard
+        key={quest.id}
+        quest={quest}
+        onSelect={setSelectedQuest}
+        onStart={handleStartQuest}
+        onReopen={handleReopenQuest}
+        onReroll={handleRerollQuest}
+        gems={progress.gems}
+      />
+    ));
+  }
+
+  const pageTitle: Record<AppPage, string> = {
+    dashboard: "Dashboard",
+    quests: "Quests",
+    focus: "Fokusmodus",
+    shop: "Shop",
+    progress: "Fortschritt",
+    settings: "Einstellungen",
+  };
+
   return (
-    <main className="app-shell">
-      <section className="hero">
-        <div>
-          <span className="eyebrow">LernQuest MVP</span>
-          <h1>Willkommen zurück, Held des Lernens.</h1>
-          <p>Nimm Quests bewusst an, bleib im Fokus und schalte mit jedem Level bessere Belohnungen frei.</p>
-        </div>
-        <a className="button button--primary" href="#new-quest">
-          Neue Quest
-        </a>
-      </section>
-
-      <section className="dashboard-grid" aria-label="Dashboard">
-        <DashboardCard label="Coins" value={progress.coins} detail="Standardwährung" />
-        <DashboardCard label="XP" value={progress.xp} detail="nur für Levelaufstieg" />
-        <DashboardCard label="Gems" value={progress.gems} detail="seltene Spezialwährung" />
-        <DashboardCard label="Level" value={levelInfo.level} detail="automatisch berechnet" />
-        <DashboardCard label="Heute erledigt" value={completedToday} detail="abgeschlossene Quests" />
-        <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
-        <DashboardCard label="Fokus heute" value={`${focusSummary.todayMinutes} Min`} detail="Tagesziel zählt live" />
-        <DashboardCard label="Fokus Woche" value={`${focusSummary.weekMinutes} Min`} detail="für Wochenziele" />
-      </section>
-
-      <section className="level-section">
-        <ProgressBar
-          value={levelInfo.xpInCurrentLevel}
-          max={levelInfo.xpForNextLevel}
-          label={`Level ${levelInfo.level} Fortschritt`}
-        />
-        <div className="unlock-summary">
-          <p className="status-line">{toast}</p>
-          <p>
-            {nextUnlock
-              ? `Nächstes Ziel: Level ${nextUnlock.level} - ${nextUnlock.title}.`
-              : `Letzter Unlock: ${latestUnlock?.title ?? "Startausrüstung"}.`}
-          </p>
-        </div>
-      </section>
-
-      <section className="dashboard-experience">
-        <div className="panel progress-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Heutiger Fortschritt</span>
-            <h2>{completedToday > 0 ? "Du bist im Lauf." : "Der erste Schritt wartet."}</h2>
+    <div className="app-frame">
+      <SidebarNavigation activePage={activePage} onNavigate={setActivePage} />
+      <main className="page-shell">
+        <header className="topbar">
+          <div>
+            <span className="eyebrow">LernQuest</span>
+            <h1>{pageTitle[activePage]}</h1>
           </div>
-          <p>{completedToday > 0 ? "Konstanz schlägt Perfektion." : "Ein Level weiter beginnt mit einer Quest."}</p>
-          <div className="daily-goal-grid">
-            {dailyGoals.map((goal) => (
-              <DailyGoalCard key={goal.id} goal={goal} />
-            ))}
+          <div className="topbar-currencies" aria-label="Währungen">
+            <span>{progress.coins} Coins</span>
+            <span>{progress.xp} XP</span>
+            <span>{progress.gems} Gems</span>
           </div>
-        </div>
-        <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
-      </section>
+        </header>
 
-      <section className="dashboard-experience">
-        <div className="panel progress-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Wochenziele</span>
-            <h2>Strategischer Fortschritt</h2>
-          </div>
-          <div className="daily-goal-grid">
-            {weeklyGoals.map((goal) => (
-              <DailyGoalCard key={goal.id} goal={goal} />
-            ))}
-          </div>
-        </div>
-        <div className="panel longterm-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Nächster Schritt</span>
-            <h2>Langzeitmotivation</h2>
-          </div>
-          <p>Nächstes Level: noch {levelInfo.xpForNextLevel - levelInfo.xpInCurrentLevel} XP.</p>
-          <p>{nextUnlock ? `Nächster Unlock: ${nextUnlock.title} auf Level ${nextUnlock.level}.` : "Alle aktuellen Unlocks erreicht."}</p>
-          <p>{nextDailyGoal ? `Tagesziel: ${nextDailyGoal.title}.` : "Alle Tagesziele erledigt."}</p>
-          <p>{nextWeeklyGoal ? `Wochenziel: ${nextWeeklyGoal.title}.` : "Alle Wochenziele erledigt."}</p>
-          <p>{streakState.canRescue ? "Streak in Gefahr: Rettung möglich." : "Streak läuft stabil, wenn heute eine Quest zählt."}</p>
-        </div>
-      </section>
+        <p className="status-line">{toast}</p>
 
-      <section className="dashboard-experience">
-        <div className="panel active-quest-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Aktive Quests</span>
-            <h2>{acceptedQuests.length + runningQuests.length} bereit</h2>
-          </div>
-          <p>
-            {acceptedQuests.length + runningQuests.length > 0
-              ? "Angenommene Quests haben einen klaren nächsten Schritt."
-              : "Nimm eine offene Quest an, wenn du bewusst starten willst."}
-          </p>
-        </div>
-        <div className="panel success-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Letzte Erfolge</span>
-            <h2>{latestCompleted.length > 0 ? "Abgeschlossen" : "Noch leer"}</h2>
-          </div>
-          {latestCompleted.length > 0 ? (
-            <ul className="success-list">
-              {latestCompleted.map((quest) => (
-                <li key={quest.id}>{quest.title}</li>
-              ))}
-            </ul>
-          ) : (
-            <p>Heute zählt jede abgeschlossene Einheit.</p>
-          )}
-        </div>
-      </section>
-
-      <GemActionPanel gems={progress.gems} streakState={streakState} onRescueStreak={handleRescueStreak} />
-
-      <div className="main-grid">
-        <section className="panel" id="new-quest">
-          <div className="section-heading">
-            <span className="eyebrow">Quest-System</span>
-            <h2>Neue Quest anlegen</h2>
-          </div>
-          <form className="quest-form" onSubmit={handleCreateQuest}>
-            <label>
-              Titel
-              <input
-                value={questDraft.title}
-                onChange={(event) => setQuestDraft({ ...questDraft, title: event.target.value })}
-                placeholder="z. B. Matheaufgaben lösen"
-              />
-            </label>
-            <label>
-              Fach / Kategorie
-              <input
-                value={questDraft.category}
-                onChange={(event) => setQuestDraft({ ...questDraft, category: event.target.value })}
-                placeholder="z. B. Mathe"
-              />
-            </label>
-            <label>
-              Dauer in Minuten
-              <input
-                min="1"
-                type="number"
-                value={questDraft.durationMinutes}
-                onChange={(event) => setQuestDraft({ ...questDraft, durationMinutes: Number(event.target.value) })}
-              />
-            </label>
-            <label>
-              Schwierigkeit
-              <select
-                value={questDraft.difficulty}
-                onChange={(event) => setQuestDraft({ ...questDraft, difficulty: event.target.value as Difficulty })}
-              >
-                <option value="easy">leicht</option>
-                <option value="medium">mittel</option>
-                <option value="hard">schwer</option>
-              </select>
-            </label>
-            <label className="quest-form__wide">
-              Optionale Notiz
-              <textarea
-                value={questDraft.note}
-                onChange={(event) => setQuestDraft({ ...questDraft, note: event.target.value })}
-                placeholder="Was genau soll erledigt werden?"
-              />
-            </label>
-            <button className="button button--primary quest-form__wide" type="submit">
-              Quest erstellen
-            </button>
-          </form>
-        </section>
-
-        <TimerPanel quest={activeQuest} onComplete={handleCompleteQuest} onCancel={handleCancelFocus} />
-      </div>
-
-      <section className="panel">
-        <div className="section-heading">
-          <span className="eyebrow">Offene Quests</span>
-          <h2>Antippen, annehmen, starten</h2>
-        </div>
-        <div className="quest-list">
-          {sortedQuests.length > 0 ? (
-            sortedQuests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                onSelect={setSelectedQuest}
-                onStart={handleStartQuest}
-                onReopen={handleReopenQuest}
-                onReroll={handleRerollQuest}
-                gems={progress.gems}
-              />
-            ))
-          ) : (
-            <p className="empty-state">Noch keine Quests. Erstelle eine Quest und nimm sie bewusst an.</p>
-          )}
-        </div>
-      </section>
-
-      <StatsPanel stats={statsSummary} />
-      <SessionHistory sessions={progress.sessionHistory} />
-
-      <ShopSection
-        eyebrow="Standard-Shop"
-        title="Immer erreichbare Belohnungen"
-        variant="standard"
-        items={standardItems}
-        coins={progress.coins}
-        level={levelInfo.level}
-        onBuy={handleBuyItem}
-      />
-
-      <ShopSection
-        eyebrow="Premium-Shop"
-        title="Freischaltungen durch Level"
-        variant="premium"
-        items={premiumItems}
-        coins={progress.coins}
-        level={levelInfo.level}
-        onBuy={handleBuyItem}
-      />
-
-      <section className="panel special-actions">
-        <div className="section-heading">
-          <span className="eyebrow">Gem-Sonderfunktionen</span>
-          <h2>Vorbereitet für später</h2>
-        </div>
-        <div className="special-grid">
-          {gemSpecialActions.map((action) => {
-            const locked = levelInfo.level < action.unlockLevel;
-            return (
-              <article className={`special-card ${locked ? "shop-card--locked" : "shop-card--unlocked"}`} key={action.id}>
-                <span className={`unlock-label ${locked ? "unlock-label--locked" : "unlock-label--open"}`}>
-                  {locked ? `Level ${action.unlockLevel} nötig` : "Vorbereitet"}
-                </span>
-                <h3>{action.name}</h3>
-                <p>{action.description}</p>
-                <strong>{action.gemPrice} Gems</strong>
+        {activePage === "dashboard" ? (
+          <div className="page-stack">
+            <DashboardHero
+              focusText={subjectFocus.focus}
+              levelInfo={levelInfo}
+              nextUnlock={nextUnlock}
+              onNavigate={setActivePage}
+            />
+            <section className="dashboard-priority-grid">
+              <ActiveQuestCard activeQuest={activeQuest} acceptedCount={acceptedQuests.length} onNavigate={setActivePage} />
+              <SubjectPriorityCard subjects={progress.subjectPriorities} />
+              <article className="compact-card">
+                <span className="eyebrow">Tagesziel</span>
+                {nextDailyGoal ? <DailyGoalCard goal={nextDailyGoal} /> : <p>Alle Tagesziele erledigt.</p>}
               </article>
-            );
-          })}
-        </div>
-      </section>
+            </section>
+            <section className="dashboard-summary-grid">
+              <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
+              <DashboardCard label="Fokus heute" value={`${focusSummary.todayMinutes} Min`} detail="für Tagesziele" />
+              <DashboardCard label="Heute erledigt" value={completedToday} detail="abgeschlossene Quests" />
+            </section>
+            <section className="quick-actions">
+              <button className="quick-action-card" type="button" onClick={() => setActivePage("quests")}>
+                <strong>Neue Quest</strong>
+                <span>Planen und bewusst annehmen</span>
+              </button>
+              <button className="quick-action-card" type="button" onClick={() => setActivePage("focus")}>
+                <strong>Fokusmodus</strong>
+                <span>Ruhige Session öffnen</span>
+              </button>
+              <button className="quick-action-card" type="button" onClick={() => setActivePage("shop")}>
+                <strong>Shop</strong>
+                <span>Belohnungen ansehen</span>
+              </button>
+            </section>
+          </div>
+        ) : null}
 
-      {(progress.purchasedRewards.length > 0 ||
-        progress.discountTokens > 0 ||
-        progress.streakProtectionTokens > 0 ||
-        progress.specialVouchers > 0) && (
-        <section className="inventory">
-          <span className="eyebrow">Inventar</span>
-          <p>
-            {[...progress.purchasedRewards, `${progress.discountTokens} Rabatt-Token`, `${progress.streakProtectionTokens} Streak-Schutz`, `${progress.specialVouchers} Spezialgutschein`]
-              .filter((entry) => !entry.startsWith("0 "))
-              .join(" · ")}
-          </p>
-        </section>
-      )}
+        {activePage === "quests" ? (
+          <div className="page-stack">
+            <section className="content-card" id="new-quest">
+              <div className="section-heading">
+                <span className="eyebrow">Quest-System</span>
+                <h2>Neue Quest anlegen</h2>
+              </div>
+              <form className="quest-form" onSubmit={handleCreateQuest}>
+                <label>
+                  Titel
+                  <input
+                    value={questDraft.title}
+                    onChange={(event) => setQuestDraft({ ...questDraft, title: event.target.value })}
+                    placeholder="z. B. Matheaufgaben lösen"
+                  />
+                </label>
+                <label>
+                  Fach / Kategorie
+                  <input
+                    value={questDraft.category}
+                    onChange={(event) => setQuestDraft({ ...questDraft, category: event.target.value })}
+                    placeholder="z. B. Mathe"
+                  />
+                </label>
+                <label>
+                  Dauer in Minuten
+                  <input
+                    min="1"
+                    type="number"
+                    value={questDraft.durationMinutes}
+                    onChange={(event) => setQuestDraft({ ...questDraft, durationMinutes: Number(event.target.value) })}
+                  />
+                </label>
+                <label>
+                  Schwierigkeit
+                  <select
+                    value={questDraft.difficulty}
+                    onChange={(event) => setQuestDraft({ ...questDraft, difficulty: event.target.value as Difficulty })}
+                  >
+                    <option value="easy">leicht</option>
+                    <option value="medium">mittel</option>
+                    <option value="hard">schwer</option>
+                  </select>
+                </label>
+                <label className="quest-form__wide">
+                  Optionale Notiz
+                  <textarea
+                    value={questDraft.note}
+                    onChange={(event) => setQuestDraft({ ...questDraft, note: event.target.value })}
+                    placeholder="Was genau soll erledigt werden?"
+                  />
+                </label>
+                <button className="button button--primary quest-form__wide" type="submit">
+                  Quest erstellen
+                </button>
+              </form>
+            </section>
+
+            {activeQuest ? (
+              <section className="content-card">
+                <div className="section-heading">
+                  <span className="eyebrow">Aktive Quest</span>
+                  <h2>Läuft gerade</h2>
+                </div>
+                <div className="quest-list">{renderQuestList([activeQuest])}</div>
+              </section>
+            ) : null}
+
+            <section className="content-card">
+              <div className="section-heading">
+                <span className="eyebrow">Quest-Liste</span>
+                <h2>Nach Status sortiert</h2>
+              </div>
+              <div className="tabs" role="tablist" aria-label="Quest-Filter">
+                <button className={questTab === "open" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("open")}>Offen</button>
+                <button className={questTab === "accepted" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("accepted")}>Angenommen</button>
+                <button className={questTab === "completed" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("completed")}>Abgeschlossen</button>
+              </div>
+              <div className="quest-list">
+                {questTab === "open" ? renderQuestList(openQuestList) : null}
+                {questTab === "accepted" ? renderQuestList(acceptedQuestList) : null}
+                {questTab === "completed" ? renderQuestList(completedQuestList) : null}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {activePage === "focus" ? (
+          <div className="focus-page">
+            <TimerPanel quest={activeQuest} onComplete={handleCompleteQuest} onCancel={handleCancelFocus} />
+          </div>
+        ) : null}
+
+        {activePage === "shop" ? (
+          <div className="page-stack">
+            <ShopSection
+              eyebrow="Standard-Shop"
+              title="Immer verfügbare Belohnungen"
+              variant="standard"
+              items={standardRewardItems}
+              coins={progress.coins}
+              level={levelInfo.level}
+              onBuy={handleBuyItem}
+            />
+            <ShopSection
+              eyebrow="Lucky Chests"
+              title="Truhen und Zufallsbelohnungen"
+              variant="chests"
+              items={chestItems}
+              coins={progress.coins}
+              level={levelInfo.level}
+              onBuy={handleBuyItem}
+            />
+            <ShopSection
+              eyebrow="Premium-Shop"
+              title="Freischaltungen durch Level"
+              variant="premium"
+              items={premiumRewardItems}
+              coins={progress.coins}
+              level={levelInfo.level}
+              onBuy={handleBuyItem}
+            />
+            <GemActionPanel gems={progress.gems} streakState={streakState} onRescueStreak={handleRescueStreak} />
+            <section className="content-card">
+              <div className="section-heading">
+                <span className="eyebrow">Spezialaktionen</span>
+                <h2>Gem-Funktionen</h2>
+              </div>
+              <div className="special-grid">
+                {gemSpecialActions.map((action) => {
+                  const locked = levelInfo.level < action.unlockLevel;
+                  return (
+                    <article className={`special-card ${locked ? "shop-card--locked" : "shop-card--unlocked"}`} key={action.id}>
+                      <span className={`unlock-label ${locked ? "unlock-label--locked" : "unlock-label--open"}`}>
+                        {locked ? `Level ${action.unlockLevel} nötig` : "Vorbereitet"}
+                      </span>
+                      <h3>{action.name}</h3>
+                      <p>{action.description}</p>
+                      <strong>{action.gemPrice} Gems</strong>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {activePage === "progress" ? (
+          <div className="page-stack">
+            <div className="tabs" role="tablist" aria-label="Fortschrittsbereiche">
+              <button className={progressTab === "overview" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("overview")}>Übersicht</button>
+              <button className={progressTab === "goals" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("goals")}>Ziele</button>
+              <button className={progressTab === "stats" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("stats")}>Statistik</button>
+              <button className={progressTab === "history" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("history")}>Historie</button>
+              <button className={progressTab === "unlocks" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("unlocks")}>Unlocks</button>
+            </div>
+
+            {progressTab === "overview" ? (
+              <>
+                <section className="dashboard-summary-grid">
+                  <LevelProgressCard levelInfo={levelInfo} />
+                  <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
+                  <DashboardCard label="Fokus Woche" value={`${focusSummary.weekMinutes} Min`} detail={`${focusSummary.totalMinutes} Min gesamt`} />
+                </section>
+                <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
+              </>
+            ) : null}
+
+            {progressTab === "goals" ? (
+              <section className="two-column-page">
+                <div className="content-card">
+                  <div className="section-heading">
+                    <span className="eyebrow">Tagesziele</span>
+                    <h2>Heute</h2>
+                  </div>
+                  <div className="daily-goal-grid">{dailyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+                </div>
+                <div className="content-card">
+                  <div className="section-heading">
+                    <span className="eyebrow">Wochenziele</span>
+                    <h2>Diese Woche</h2>
+                  </div>
+                  <div className="daily-goal-grid">{weeklyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+                </div>
+              </section>
+            ) : null}
+
+            {progressTab === "stats" ? <StatsPanel stats={statsSummary} /> : null}
+            {progressTab === "history" ? <SessionHistory sessions={progress.sessionHistory} /> : null}
+            {progressTab === "unlocks" ? (
+              <section className="two-column-page">
+                <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
+                <div className="content-card">
+                  <div className="section-heading">
+                    <span className="eyebrow">Letzte Erfolge</span>
+                    <h2>Sessions</h2>
+                  </div>
+                  {latestCompleted.length > 0 ? (
+                    <ul className="success-list">{latestCompleted.map((quest) => <li key={quest.id}>{quest.title}</li>)}</ul>
+                  ) : (
+                    <p className="empty-state">Noch keine abgeschlossene Quest.</p>
+                  )}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        ) : null}
+
+        {activePage === "settings" ? (
+          <div className="two-column-page">
+            <SettingsPanel subjects={progress.subjectPriorities} onChangePriority={handleChangeSubjectPriority} />
+            <SubjectPriorityCard subjects={progress.subjectPriorities} />
+          </div>
+        ) : null}
+      </main>
 
       <QuestAcceptModal quest={selectedQuest} onAccept={handleAcceptQuest} onDecline={() => setSelectedQuest(null)} />
       <LuckyChestModal reward={chestReward} onClose={() => setChestReward(null)} />
@@ -513,7 +584,7 @@ function App() {
         onSaveReflection={handleSaveReflection}
         onClose={() => setCompletionSummary(null)}
       />
-    </main>
+    </div>
   );
 }
 

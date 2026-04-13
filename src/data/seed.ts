@@ -56,4 +56,10 @@ export const initialProgress: UserProgress = {
   dailyGoalProgress: {},
   weeklyGoalProgress: {},
   sessionHistory: [],
+  subjectPriorities: [
+    { id: "pb", label: "PB", priority: "high" },
+    { id: "mathe", label: "Mathe", priority: "high" },
+    { id: "deutsch", label: "Deutsch", priority: "medium" },
+    { id: "physik", label: "Physik", priority: "low" },
+  ],
 };

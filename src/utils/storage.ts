@@ -110,6 +110,12 @@ export function loadProgress(): UserProgress {
     dailyGoalProgress: stored.dailyGoalProgress ?? {},
     weeklyGoalProgress: stored.weeklyGoalProgress ?? {},
     sessionHistory: Array.isArray(stored.sessionHistory) ? stored.sessionHistory : [],
+    subjectPriorities: Array.isArray(stored.subjectPriorities)
+      ? initialProgress.subjectPriorities.map((subject) => ({
+          ...subject,
+          priority: stored.subjectPriorities?.find((item) => item.id === subject.id)?.priority ?? subject.priority,
+        }))
+      : initialProgress.subjectPriorities,
   };
 }
 
