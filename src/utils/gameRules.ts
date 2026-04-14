@@ -395,7 +395,6 @@ const subjectPriorityIds: Record<Subject, SubjectPrioritySetting["id"]> = {
   PB: "pb",
   Deutsch: "deutsch",
   Mathe: "mathe",
-  Physik: "physik",
 };
 
 const rerollPriorityWeights: Record<SubjectPriority, number> = {
@@ -411,10 +410,19 @@ function getSubjectPriorityWeight(subject: Subject, priorities: SubjectPriorityS
   return rerollPriorityWeights[priority];
 }
 
+function getRotationPenalty(template: (typeof studyQuestTemplates)[number], quest: Quest): number {
+  let penalty = 1;
+  if (template.subject === quest.subject) penalty *= 0.45;
+  if (template.topic === quest.topic) penalty *= 0.45;
+  if (template.taskType === quest.taskType) penalty *= 0.35;
+  if (template.mode === quest.mode) penalty *= 0.7;
+  return penalty;
+}
+
 export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] = []): Quest {
   const weightedTemplates = studyQuestTemplates.map((template) => ({
     template,
-    weight: getSubjectPriorityWeight(template.subject, priorities),
+    weight: getSubjectPriorityWeight(template.subject, priorities) * getRotationPenalty(template, quest),
   }));
   const totalWeight = weightedTemplates.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * Math.max(1, totalWeight);

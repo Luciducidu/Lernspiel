@@ -21,7 +21,7 @@ import { SubjectPriorityCard } from "./components/SubjectPriorityCard";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { gemSpecialActions } from "./data/balancing";
-import { subjectOptions, subjectTopics } from "./data/questContent";
+import { modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { usePersistentState } from "./hooks/usePersistentState";
 import type {
@@ -33,6 +33,9 @@ import type {
   Quest,
   QuestStatus,
   QuestType,
+  QuestMode,
+  QuestOutputType,
+  QuestTaskType,
   ReflectionData,
   ShopItem,
   Subject,
@@ -63,7 +66,10 @@ import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
 const emptyForm = {
   title: "",
   subject: "Deutsch" as Subject,
-  topic: "Analyse",
+  topic: "Analyse und Interpretation",
+  taskType: "anwendung" as QuestTaskType,
+  mode: "solo" as QuestMode,
+  outputType: "Stichpunkte" as QuestOutputType,
   durationMinutes: 25,
   difficulty: "easy" as Difficulty,
   note: "",
@@ -172,6 +178,9 @@ function App() {
       category: questDraft.subject,
       subject: questDraft.subject,
       topic,
+      taskType: questDraft.taskType,
+      mode: questDraft.mode,
+      outputType: questDraft.outputType,
       durationMinutes: questDraft.durationMinutes,
       difficulty: questDraft.difficulty,
       note: questDraft.note.trim() || undefined,
@@ -550,6 +559,39 @@ function App() {
                   >
                     {topicOptions.map((topic) => (
                       <option key={topic} value={topic}>{topic}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Aufgabentyp
+                  <select
+                    value={questDraft.taskType}
+                    onChange={(event) => setQuestDraft({ ...questDraft, taskType: event.target.value as QuestTaskType })}
+                  >
+                    {taskTypeOptions.map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Modus
+                  <select
+                    value={questDraft.mode}
+                    onChange={(event) => setQuestDraft({ ...questDraft, mode: event.target.value as QuestMode })}
+                  >
+                    {modeOptions.map((mode) => (
+                      <option key={mode} value={mode}>{mode}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Output
+                  <select
+                    value={questDraft.outputType}
+                    onChange={(event) => setQuestDraft({ ...questDraft, outputType: event.target.value as QuestOutputType })}
+                  >
+                    {outputTypeOptions.map((output) => (
+                      <option key={output} value={output}>{output}</option>
                     ))}
                   </select>
                 </label>

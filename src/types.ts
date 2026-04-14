@@ -14,7 +14,23 @@ export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "
 
 export type SubjectId = "pb" | "mathe" | "deutsch" | "physik";
 
-export type Subject = "PB" | "Deutsch" | "Mathe" | "Physik";
+export type Subject = "PB" | "Deutsch" | "Mathe";
+
+export type QuestTaskType = "recall" | "struktur" | "analyse" | "anwendung" | "chatgpt_training" | "abi_training";
+
+export type QuestMode = "solo" | "mit_chatgpt" | "unter_zeitdruck" | "schreibplan" | "abfrage" | "klausurnah";
+
+export type QuestOutputType =
+  | "Stichpunkte"
+  | "Schreibplan"
+  | "kurze Erklärung"
+  | "Vergleich"
+  | "Rechnung"
+  | "Analyse"
+  | "Urteil"
+  | "Gliederung"
+  | "mündliche Erklärung"
+  | "ChatGPT-Dialog";
 
 export type SubjectPriority = "high" | "medium" | "low" | "paused";
 
@@ -31,6 +47,9 @@ export interface Quest {
   category: string;
   subject?: Subject;
   topic?: string;
+  taskType?: QuestTaskType;
+  mode?: QuestMode;
+  outputType?: QuestOutputType;
   durationMinutes: number;
   difficulty: Difficulty;
   note?: string;

@@ -628,6 +628,36 @@ button:disabled {
   color: var(--muted);
 }
 
+.quest-meta-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 10px 0 4px;
+}
+
+.quest-meta-badges span {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 26px;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--card-soft);
+  color: #405247;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.quest-meta-badges span:first-child {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.quest-meta-badges--modal {
+  justify-content: center;
+  margin-top: -6px;
+}
+
 .quest-card__side {
   display: grid;
   justify-items: end;

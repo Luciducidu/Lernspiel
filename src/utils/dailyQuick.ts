@@ -15,7 +15,6 @@ const subjectPriorityIds: Record<Subject, SubjectPrioritySetting["id"]> = {
   PB: "pb",
   Deutsch: "deutsch",
   Mathe: "mathe",
-  Physik: "physik",
 };
 
 const priorityWeights: Record<SubjectPriority, number> = {

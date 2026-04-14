@@ -1,11 +1,7 @@
 import type { Quest, UserProgress } from "../types";
 import { createQuestFromTemplate, studyQuestTemplates } from "./questContent";
 
-const initialQuestTemplateIndexes = [0, 2, 4, 10, 13, 16, 20, 22, 26, 28];
-
-export const initialQuests: Quest[] = initialQuestTemplateIndexes.map((templateIndex, index) =>
-  createQuestFromTemplate(studyQuestTemplates[templateIndex], index),
-);
+export const initialQuests: Quest[] = studyQuestTemplates.map(createQuestFromTemplate);
 
 export const initialProgress: UserProgress = {
   coins: 120,

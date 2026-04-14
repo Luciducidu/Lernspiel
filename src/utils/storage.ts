@@ -5,7 +5,7 @@ import { getLevelInfo, todayKey } from "./gameRules";
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
-const APP_DATA_VERSION = 3;
+const APP_DATA_VERSION = 4;
 
 interface StorageMeta {
   appDataVersion: number;
@@ -14,7 +14,7 @@ interface StorageMeta {
 
 const validQuestStatuses: QuestStatus[] = ["open", "accepted", "in_progress", "completed", "cancelled"];
 const validQuestTypes: QuestType[] = ["study", "daily_quick"];
-const validSubjects: Subject[] = ["PB", "Deutsch", "Mathe", "Physik"];
+const validSubjects: Subject[] = ["PB", "Deutsch", "Mathe"];
 
 function readJson<T>(key: string, fallback: T): T {
   const stored = localStorage.getItem(key);
@@ -67,7 +67,6 @@ function inferSubjectFromCategory(category = ""): Subject | undefined {
   if (normalized.includes("pb") || normalized.includes("politik")) return "PB";
   if (normalized.includes("deutsch")) return "Deutsch";
   if (normalized.includes("mathe")) return "Mathe";
-  if (normalized.includes("physik")) return "Physik";
   return undefined;
 }
 
@@ -93,14 +92,25 @@ function normalizeSubjectPriority(id: SubjectId, storedPriority: SubjectPriority
 export function loadQuests(): Quest[] {
   ensureMeta();
   const stored = readJson<Quest[]>(QUESTS_KEY, initialQuests);
-  const normalized = (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests).map(normalizeQuest);
+  const normalized = (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests)
+    .map(normalizeQuest)
+    .filter((quest) => validSubjects.includes(quest.subject as Subject))
+    .filter((quest) => !quest.id.startsWith("quest-seed-"))
+    .filter((quest) => Boolean(quest.taskType && quest.mode && quest.outputType));
   const existingIds = new Set(normalized.map((quest) => quest.id));
   const missingSeedQuests = initialQuests.filter((quest) => !existingIds.has(quest.id)).map(normalizeQuest);
   return [...missingSeedQuests, ...normalized];
 }
 
 export function saveQuests(quests: Quest[]): void {
-  writeJson(QUESTS_KEY, quests.map(normalizeQuest));
+  writeJson(
+    QUESTS_KEY,
+    quests
+      .map(normalizeQuest)
+      .filter((quest) => validSubjects.includes(quest.subject as Subject))
+      .filter((quest) => !quest.id.startsWith("quest-seed-"))
+      .filter((quest) => Boolean(quest.taskType && quest.mode && quest.outputType)),
+  );
 }
 
 export function loadProgress(): UserProgress {

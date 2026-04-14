@@ -3,6 +3,7 @@ import type { Quest } from "../types";
 import { useModalA11y } from "../hooks/useModalA11y";
 import { calculateQuestReward } from "../utils/gameRules";
 import { inferQuestSubject } from "../utils/subjects";
+import { modeLabels, taskTypeLabels } from "../data/questContent";
 import { QuestRewardPreview } from "./QuestRewardPreview";
 
 const difficultyLabels: Record<Quest["difficulty"], string> = {
@@ -56,6 +57,11 @@ export function QuestAcceptModal({ quest, onAccept, onDecline }: QuestAcceptModa
           <span>{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : quest.category}</span>
           <span>{quest.durationMinutes} Min.</span>
           <span>{difficultyLabels[quest.difficulty]}</span>
+        </div>
+        <div className="quest-meta-badges quest-meta-badges--modal">
+          {quest.taskType ? <span>{taskTypeLabels[quest.taskType]}</span> : null}
+          {quest.mode ? <span>{modeLabels[quest.mode]}</span> : null}
+          {quest.outputType ? <span>{quest.outputType}</span> : null}
         </div>
 
         <QuestRewardPreview reward={reward} />

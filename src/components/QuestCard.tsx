@@ -1,6 +1,7 @@
 import { calculateQuestReward } from "../utils/gameRules";
 import type { Quest } from "../types";
 import { inferQuestSubject } from "../utils/subjects";
+import { modeLabels, taskTypeLabels } from "../data/questContent";
 import { QuestRewardPreview } from "./QuestRewardPreview";
 import { QuestStatusBadge } from "./QuestStatusBadge";
 
@@ -41,6 +42,11 @@ export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, gems }
           </div>
           <span className="eyebrow">{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : quest.category}</span>
           <h3>{quest.title}</h3>
+          <div className="quest-meta-badges">
+            {quest.taskType ? <span>{taskTypeLabels[quest.taskType]}</span> : null}
+            {quest.mode ? <span>{modeLabels[quest.mode]}</span> : null}
+            {quest.outputType ? <span>{quest.outputType}</span> : null}
+          </div>
           {quest.note ? <p>{quest.note}</p> : null}
           {quest.status === "accepted" ? <small>Eine angenommene Quest ist der erste Schritt.</small> : null}
           {quest.status === "in_progress" ? <small>Status: Läuft. Bleib bei dieser einen Einheit.</small> : null}

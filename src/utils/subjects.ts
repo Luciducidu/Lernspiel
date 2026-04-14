@@ -7,18 +7,16 @@ export const priorityLabels: Record<SubjectPriority, string> = {
   paused: "zurückgestellt",
 };
 
-export const subjectIdToName: Record<SubjectId, Subject> = {
+export const subjectIdToName: Partial<Record<SubjectId, Subject>> = {
   pb: "PB",
   deutsch: "Deutsch",
   mathe: "Mathe",
-  physik: "Physik",
 };
 
 export const subjectNameToId: Record<Subject, SubjectId> = {
   PB: "pb",
   Deutsch: "deutsch",
   Mathe: "mathe",
-  Physik: "physik",
 };
 
 export function inferQuestSubject(quest: Pick<Quest, "subject" | "category">): Subject | undefined {
@@ -30,7 +28,6 @@ export function inferQuestSubject(quest: Pick<Quest, "subject" | "category">): S
   if (category.includes("pb") || category.includes("politik")) return "PB";
   if (category.includes("deutsch")) return "Deutsch";
   if (category.includes("mathe")) return "Mathe";
-  if (category.includes("physik")) return "Physik";
   return undefined;
 }
 
