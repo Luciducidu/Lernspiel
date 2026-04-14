@@ -7,6 +7,7 @@ import type {
   QuestTaskType,
   Subject,
 } from "../types";
+import { normalizeQuestDuration } from "../utils/durations";
 
 export interface StudyQuestTemplate {
   type: "study";
@@ -245,10 +246,10 @@ export const dailyQuickQuestions: MultipleChoiceQuestion[] = [
 ];
 
 export function createQuestFromTemplate(template: StudyQuestTemplate, index: number): Quest {
-  return {
+  return normalizeQuestDuration({
     ...template,
     id: `abi-quest-seed-${index + 1}`,
     status: "open",
     createdAt: new Date().toISOString(),
-  };
+  });
 }

@@ -32,6 +32,8 @@ export type QuestOutputType =
   | "mündliche Erklärung"
   | "ChatGPT-Dialog";
 
+export type TimeCategory = "kurz" | "normal" | "lang";
+
 export type SubjectPriority = "high" | "medium" | "low" | "paused";
 
 export interface SubjectPrioritySetting {
@@ -51,12 +53,17 @@ export interface Quest {
   mode?: QuestMode;
   outputType?: QuestOutputType;
   durationMinutes: number;
+  recommendedDurationMinutes?: number;
+  durationOptions?: number[];
+  timeCategory?: TimeCategory;
   difficulty: Difficulty;
   note?: string;
   status: QuestStatus;
   createdAt: string;
   acceptedAt?: string;
   startedAt?: string;
+  pausedAt?: string;
+  accumulatedPausedMs?: number;
   completedAt?: string;
   cancelledAt?: string;
   reflection?: ReflectionData;

@@ -1,5 +1,6 @@
 import { initialProgress, initialQuests } from "../data/seed";
 import type { Quest, QuestStatus, QuestType, Subject, SubjectId, SubjectPriority, UserProgress } from "../types";
+import { normalizeQuestDuration } from "./durations";
 import { getLevelInfo, todayKey } from "./gameRules";
 
 const QUESTS_KEY = "lernquest.quests";
@@ -48,7 +49,7 @@ function normalizeQuest(quest: Quest): Quest {
   const type = validQuestTypes.includes(quest.type) ? quest.type : "study";
   const subject = quest.subject && validSubjects.includes(quest.subject) ? quest.subject : inferSubjectFromCategory(quest.category);
 
-  return {
+  return normalizeQuestDuration({
     ...quest,
     id: quest.id || crypto.randomUUID(),
     type,
@@ -57,9 +58,10 @@ function normalizeQuest(quest: Quest): Quest {
     subject,
     topic: quest.topic?.trim() || undefined,
     durationMinutes: Math.max(1, Number(quest.durationMinutes) || 25),
+    accumulatedPausedMs: clampNumber(quest.accumulatedPausedMs, 0),
     status,
     createdAt: quest.createdAt || new Date().toISOString(),
-  };
+  });
 }
 
 function inferSubjectFromCategory(category = ""): Subject | undefined {

@@ -501,6 +501,13 @@ button:disabled {
   font-weight: 800;
 }
 
+.form-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #405247;
+  font-weight: 800;
+}
+
 .quest-form input,
 .quest-form select,
 .quest-form textarea,
@@ -668,6 +675,43 @@ button:disabled {
 
 .quest-card__action {
   min-width: 132px;
+}
+
+.duration-chip-row {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.duration-chip-row--form {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card-soft);
+}
+
+.duration-chip {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #cbd8cf;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #405247;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.duration-chip--recommended {
+  border-color: var(--reward);
+  background: var(--reward-soft);
+  color: #6a4c00;
+}
+
+.duration-chip--selected {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
 }
 
 .difficulty-mark--easy,
@@ -890,6 +934,15 @@ button:disabled {
   position: static;
   max-width: 720px;
   margin: 0 auto;
+}
+
+.timer-panel--paused {
+  border-color: var(--reward);
+  background: linear-gradient(180deg, #fffaf0, #ffffff);
+}
+
+.pause-modal {
+  text-align: center;
 }
 
 .focus-page {

@@ -8,6 +8,8 @@ interface TimerPanelProps {
   quest: Quest | null;
   onComplete: (quest: Quest, focusMinutes: number) => void;
   onCancel: () => void;
+  onPause: (quest: Quest) => void;
+  onResume: (quest: Quest) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -18,39 +20,42 @@ function formatTime(seconds: number): string {
   return `${minutes}:${rest}`;
 }
 
-export function TimerPanel({ quest, onComplete, onCancel }: TimerPanelProps) {
+function getElapsedSeconds(quest: Quest | null): number {
+  if (!quest?.startedAt) {
+    return 0;
+  }
+
+  const startedAt = new Date(quest.startedAt).getTime();
+  if (!Number.isFinite(startedAt)) {
+    return 0;
+  }
+
+  const effectiveNow = quest.pausedAt ? new Date(quest.pausedAt).getTime() : Date.now();
+  const pausedMs = quest.accumulatedPausedMs ?? 0;
+  return Math.max(0, Math.floor((effectiveNow - startedAt - pausedMs) / 1000));
+}
+
+export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume }: TimerPanelProps) {
   const initialSeconds = useMemo(() => (quest ? quest.durationMinutes * 60 : 0), [quest]);
-  const getElapsedSeconds = () => {
-    if (!quest?.startedAt) {
-      return 0;
-    }
-
-    const startedAt = new Date(quest.startedAt).getTime();
-    if (!Number.isFinite(startedAt)) {
-      return 0;
-    }
-
-    return Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
-  };
-  const [elapsedSeconds, setElapsedSeconds] = useState(getElapsedSeconds);
-  const [isRunning, setIsRunning] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(() => getElapsedSeconds(quest));
+  const [showPauseConfirm, setShowPauseConfirm] = useState(false);
+  const isPaused = Boolean(quest?.pausedAt);
 
   useEffect(() => {
-    setElapsedSeconds(getElapsedSeconds());
-    setIsRunning(Boolean(quest));
-  }, [initialSeconds, quest?.id, quest?.startedAt]);
+    setElapsedSeconds(getElapsedSeconds(quest));
+  }, [initialSeconds, quest?.id, quest?.startedAt, quest?.pausedAt, quest?.accumulatedPausedMs]);
 
   useEffect(() => {
-    if (!isRunning) {
+    if (!quest || isPaused) {
       return;
     }
 
     const timerId = window.setInterval(() => {
-      setElapsedSeconds(getElapsedSeconds());
+      setElapsedSeconds(getElapsedSeconds(quest));
     }, 1000);
 
     return () => window.clearInterval(timerId);
-  }, [isRunning, quest?.startedAt]);
+  }, [isPaused, quest]);
 
   if (!quest) {
     return (
@@ -67,10 +72,10 @@ export function TimerPanel({ quest, onComplete, onCancel }: TimerPanelProps) {
   const focusMinutes = Math.max(1, Math.ceil(elapsedSeconds / 60));
 
   return (
-    <section className="timer-panel timer-panel--running">
+    <section className={`timer-panel timer-panel--running ${isPaused ? "timer-panel--paused" : ""}`}>
       <div className="timer-panel__header">
         <span className="eyebrow">Fokusmodus</span>
-        <span className="status-badge status-badge--in_progress">Läuft</span>
+        <span className="status-badge status-badge--in_progress">{isPaused ? "Pausiert" : "Läuft"}</span>
       </div>
       <h2>{quest.title}</h2>
       <div className="timer-display" aria-live="polite">
@@ -78,15 +83,55 @@ export function TimerPanel({ quest, onComplete, onCancel }: TimerPanelProps) {
       </div>
       <ProgressBar value={elapsedSeconds} max={Math.max(1, initialSeconds)} label="Session-Fortschritt" />
       <QuestRewardPreview reward={reward} />
-      <p>{secondsLeft === 0 ? "Zeit geschafft. Schließe deine Quest ab." : "Heute zählt jede abgeschlossene Einheit."}</p>
+      <p>
+        {isPaused
+          ? "Die Session ist pausiert. Beim Fortsetzen läuft die Lernzeit exakt weiter."
+          : secondsLeft === 0
+            ? "Zeit geschafft. Schließe deine Quest ab."
+            : "Heute zählt jede abgeschlossene Einheit."}
+      </p>
       <div className="timer-actions">
         <button className="button button--primary" type="button" onClick={() => onComplete(quest, focusMinutes)}>
           Abschließen
         </button>
+        {isPaused ? (
+          <button className="button button--primary" type="button" onClick={() => onResume(quest)}>
+            Fortsetzen
+          </button>
+        ) : (
+          <button className="button button--ghost" type="button" onClick={() => setShowPauseConfirm(true)}>
+            Pause
+          </button>
+        )}
         <button className="button button--ghost" type="button" onClick={onCancel}>
           Abbrechen
         </button>
       </div>
+
+      {showPauseConfirm ? (
+        <div className="modal-backdrop" role="presentation">
+          <section className="modal pause-modal" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+            <span className="modal-rune">Pause</span>
+            <h2 id="pause-title">Möchtest du die Lernsitzung wirklich pausieren?</h2>
+            <p>Die Pause hat keine Strafe. Der Timer hält an und läuft erst beim Fortsetzen weiter.</p>
+            <div className="modal-actions">
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => {
+                  setShowPauseConfirm(false);
+                  onPause(quest);
+                }}
+              >
+                Ja, pausieren
+              </button>
+              <button className="button button--ghost" type="button" onClick={() => setShowPauseConfirm(false)}>
+                Weiterlernen
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

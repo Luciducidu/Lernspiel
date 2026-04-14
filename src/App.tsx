@@ -62,6 +62,7 @@ import {
 } from "./utils/gameRules";
 import { loadProgress, loadQuests, saveProgress, saveQuests } from "./utils/storage";
 import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
+import { durationOptionsForQuest, normalizeQuestDuration, recommendedDurationForQuest } from "./utils/durations";
 
 const emptyForm = {
   title: "",
@@ -124,6 +125,8 @@ function App() {
     Boolean(getDailyQuickState(progress, question.id, todaysDateKey)?.answeredAt),
   ).length;
   const topicOptions = subjectTopics[questDraft.subject];
+  const draftDurationOptions = durationOptionsForQuest(questDraft);
+  const draftRecommendedDuration = recommendedDurationForQuest(questDraft);
   const filteredStudyQuests = sortedQuests.filter((quest) => {
     const questSubject = inferQuestSubject(quest);
     return (
@@ -141,6 +144,17 @@ function App() {
 
   function updateQuest(questId: string, update: Partial<Quest>) {
     setQuests((current) => current.map((quest) => (quest.id === questId ? { ...quest, ...update } : quest)));
+  }
+
+  function updateQuestDuration(quest: Quest, durationMinutes: number) {
+    updateQuest(quest.id, normalizeQuestDuration({ ...quest, durationMinutes }));
+    setToast(`${durationMinutes} Minuten für diese Quest gesetzt.`);
+  }
+
+  function updateQuestDraft(update: Partial<typeof questDraft>) {
+    const next = { ...questDraft, ...update };
+    const normalized = normalizeQuestDuration(next);
+    setQuestDraft({ ...next, durationMinutes: normalized.durationMinutes });
   }
 
   function showCelebration(data: Omit<CelebrationToastData, "id">) {
@@ -172,17 +186,13 @@ function App() {
     }
 
     const newQuest: Quest = {
+      ...normalizeQuestDuration(questDraft),
       id: crypto.randomUUID(),
       title,
       type: "study",
       category: questDraft.subject,
       subject: questDraft.subject,
       topic,
-      taskType: questDraft.taskType,
-      mode: questDraft.mode,
-      outputType: questDraft.outputType,
-      durationMinutes: questDraft.durationMinutes,
-      difficulty: questDraft.difficulty,
       note: questDraft.note.trim() || undefined,
       status: "open",
       createdAt: new Date().toISOString(),
@@ -216,7 +226,13 @@ function App() {
     setQuests((current) =>
       current.map((currentQuest) => {
         if (currentQuest.id === quest.id) {
-          return { ...currentQuest, status: "in_progress", startedAt: new Date().toISOString() };
+          return {
+            ...currentQuest,
+            status: "in_progress",
+            startedAt: new Date().toISOString(),
+            pausedAt: undefined,
+            accumulatedPausedMs: 0,
+          };
         }
 
         return currentQuest.status === "in_progress" ? { ...currentQuest, status: "accepted" } : currentQuest;
@@ -245,6 +261,27 @@ function App() {
     }
     setActiveQuestId(null);
     setToast("Quest abgebrochen. Du kannst sie später wieder öffnen.");
+  }
+
+  function handlePauseFocus(quest: Quest) {
+    if (quest.status !== "in_progress" || quest.pausedAt) {
+      return;
+    }
+    updateQuest(quest.id, { pausedAt: new Date().toISOString() });
+    setToast("Session pausiert. Keine Strafe, nur eine saubere Unterbrechung.");
+  }
+
+  function handleResumeFocus(quest: Quest) {
+    if (quest.status !== "in_progress" || !quest.pausedAt) {
+      return;
+    }
+    const pausedAt = new Date(quest.pausedAt).getTime();
+    const pauseMs = Number.isFinite(pausedAt) ? Math.max(0, Date.now() - pausedAt) : 0;
+    updateQuest(quest.id, {
+      pausedAt: undefined,
+      accumulatedPausedMs: (quest.accumulatedPausedMs ?? 0) + pauseMs,
+    });
+    setToast("Weiterlernen. Der Timer läuft sauber weiter.");
   }
 
   function handleCompleteQuest(quest: Quest, focusMinutes: number) {
@@ -416,9 +453,10 @@ function App() {
         quest={quest}
         onSelect={setSelectedQuest}
         onStart={handleStartQuest}
-        onReopen={handleReopenQuest}
-        onReroll={handleRerollQuest}
-        gems={progress.gems}
+      onReopen={handleReopenQuest}
+      onReroll={handleRerollQuest}
+      onDurationChange={updateQuestDuration}
+      gems={progress.gems}
       />
     ));
   }
@@ -543,7 +581,7 @@ function App() {
                     value={questDraft.subject}
                     onChange={(event) => {
                       const subject = event.target.value as Subject;
-                      setQuestDraft({ ...questDraft, subject, topic: subjectTopics[subject][0] });
+                      updateQuestDraft({ subject, topic: subjectTopics[subject][0] });
                     }}
                   >
                     {subjectOptions.map((subject) => (
@@ -555,7 +593,7 @@ function App() {
                   Thema / Unterbereich
                   <select
                     value={questDraft.topic}
-                    onChange={(event) => setQuestDraft({ ...questDraft, topic: event.target.value })}
+                    onChange={(event) => updateQuestDraft({ topic: event.target.value })}
                   >
                     {topicOptions.map((topic) => (
                       <option key={topic} value={topic}>{topic}</option>
@@ -566,7 +604,7 @@ function App() {
                   Aufgabentyp
                   <select
                     value={questDraft.taskType}
-                    onChange={(event) => setQuestDraft({ ...questDraft, taskType: event.target.value as QuestTaskType })}
+                    onChange={(event) => updateQuestDraft({ taskType: event.target.value as QuestTaskType })}
                   >
                     {taskTypeOptions.map((type) => (
                       <option key={type} value={type}>{type}</option>
@@ -577,7 +615,7 @@ function App() {
                   Modus
                   <select
                     value={questDraft.mode}
-                    onChange={(event) => setQuestDraft({ ...questDraft, mode: event.target.value as QuestMode })}
+                    onChange={(event) => updateQuestDraft({ mode: event.target.value as QuestMode })}
                   >
                     {modeOptions.map((mode) => (
                       <option key={mode} value={mode}>{mode}</option>
@@ -588,7 +626,7 @@ function App() {
                   Output
                   <select
                     value={questDraft.outputType}
-                    onChange={(event) => setQuestDraft({ ...questDraft, outputType: event.target.value as QuestOutputType })}
+                    onChange={(event) => updateQuestDraft({ outputType: event.target.value as QuestOutputType })}
                   >
                     {outputTypeOptions.map((output) => (
                       <option key={output} value={output}>{output}</option>
@@ -596,25 +634,33 @@ function App() {
                   </select>
                 </label>
                 <label>
-                  Dauer in Minuten
-                  <input
-                    min="1"
-                    type="number"
-                    value={questDraft.durationMinutes}
-                    onChange={(event) => setQuestDraft({ ...questDraft, durationMinutes: Number(event.target.value) })}
-                  />
-                </label>
-                <label>
                   Schwierigkeit
                   <select
                     value={questDraft.difficulty}
-                    onChange={(event) => setQuestDraft({ ...questDraft, difficulty: event.target.value as Difficulty })}
+                    onChange={(event) => updateQuestDraft({ difficulty: event.target.value as Difficulty })}
                   >
                     <option value="easy">leicht</option>
                     <option value="medium">mittel</option>
                     <option value="hard">schwer</option>
                   </select>
                 </label>
+                <div className="quest-form__wide">
+                  <span className="form-label">Dauer wählen</span>
+                  <div className="duration-chip-row duration-chip-row--form">
+                    {draftDurationOptions.map((duration) => (
+                      <button
+                        className={`duration-chip ${duration === questDraft.durationMinutes ? "duration-chip--selected" : ""} ${
+                          duration === draftRecommendedDuration ? "duration-chip--recommended" : ""
+                        }`}
+                        key={duration}
+                        type="button"
+                        onClick={() => setQuestDraft({ ...questDraft, durationMinutes: duration })}
+                      >
+                        {duration} Min {duration === draftRecommendedDuration ? "empfohlen" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <label className="quest-form__wide">
                   Optionale Notiz
                   <textarea
@@ -713,7 +759,13 @@ function App() {
 
         {activePage === "focus" ? (
           <div className="focus-page">
-            <TimerPanel quest={activeQuest} onComplete={handleCompleteQuest} onCancel={handleCancelFocus} />
+            <TimerPanel
+              quest={activeQuest}
+              onComplete={handleCompleteQuest}
+              onCancel={handleCancelFocus}
+              onPause={handlePauseFocus}
+              onResume={handleResumeFocus}
+            />
           </div>
         ) : null}
 

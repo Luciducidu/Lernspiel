@@ -7,6 +7,7 @@ import {
   weeklyGoalDefinitions,
 } from "../data/balancing";
 import { studyQuestTemplates } from "../data/questContent";
+import { normalizeQuestDuration } from "./durations";
 import type {
   ChestReward,
   ChestTier,
@@ -29,13 +30,16 @@ import type {
 
 export function calculateQuestReward(quest: Quest): RewardResult {
   const base = questRewardTable[quest.difficulty];
+  const recommended = quest.recommendedDurationMinutes ?? quest.durationMinutes;
+  const durationDelta = quest.durationMinutes - recommended;
+  const durationBonus = durationDelta >= 25 ? 12 : durationDelta >= 15 ? 8 : durationDelta >= 10 ? 5 : 0;
 
   return {
     coins: base.coins,
     xp: base.xp,
-    bonusCoins: completionBonusCoins,
+    bonusCoins: completionBonusCoins + durationBonus,
     reflectionBonusPrepared: true,
-    message: `Quest abgeschlossen: +${base.coins + completionBonusCoins} Coins und +${base.xp} XP.`,
+    message: `Quest abgeschlossen: +${base.coins + completionBonusCoins + durationBonus} Coins und +${base.xp} XP.`,
   };
 }
 
@@ -433,7 +437,7 @@ export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] =
     }) ?? weightedTemplates[0];
   const template = picked.template;
 
-  return {
+  return normalizeQuestDuration({
     ...quest,
     ...template,
     id: crypto.randomUUID(),
@@ -444,8 +448,10 @@ export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] =
     startedAt: undefined,
     completedAt: undefined,
     cancelledAt: undefined,
+    pausedAt: undefined,
+    accumulatedPausedMs: 0,
     reflection: undefined,
-  };
+  });
 }
 
 export function buildFocusSummary(progress: UserProgress): FocusSummary {

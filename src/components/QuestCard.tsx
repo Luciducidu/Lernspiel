@@ -17,15 +17,17 @@ interface QuestCardProps {
   onStart: (quest: Quest) => void;
   onReopen: (quest: Quest) => void;
   onReroll: (quest: Quest) => void;
+  onDurationChange: (quest: Quest, durationMinutes: number) => void;
   gems: number;
 }
 
-export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, gems }: QuestCardProps) {
+export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, onDurationChange, gems }: QuestCardProps) {
   const reward = calculateQuestReward(quest);
   const subject = inferQuestSubject(quest);
   const canOpenAcceptance = quest.status === "open";
   const canStart = quest.status === "accepted";
   const canReopen = quest.status === "cancelled";
+  const canChooseDuration = quest.status === "open" || quest.status === "accepted";
 
   return (
     <article className={`quest-card quest-card--${quest.status} quest-card--${quest.difficulty}`}>
@@ -56,6 +58,23 @@ export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, gems }
           <QuestRewardPreview reward={reward} compact />
         </div>
       </button>
+
+      {canChooseDuration && quest.durationOptions ? (
+        <div className="duration-chip-row" aria-label="Zeitwahl">
+          {quest.durationOptions.map((duration) => (
+            <button
+              className={`duration-chip ${duration === quest.durationMinutes ? "duration-chip--selected" : ""} ${
+                duration === quest.recommendedDurationMinutes ? "duration-chip--recommended" : ""
+              }`}
+              key={duration}
+              type="button"
+              onClick={() => onDurationChange(quest, duration)}
+            >
+              {duration} Min {duration === quest.recommendedDurationMinutes ? "empfohlen" : ""}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       {canStart ? (
         <button className="button button--primary quest-card__action" type="button" onClick={() => onStart(quest)}>
