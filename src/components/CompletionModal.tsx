@@ -24,6 +24,7 @@ export function CompletionModal({ summary, onSaveReflection, onClose }: Completi
   }
 
   const currentSummary = summary;
+  const didLevelUp = currentSummary.newLevel > currentSummary.previousLevel;
 
   function handleSave() {
     onSaveReflection(currentSummary.questId, {
@@ -36,18 +37,32 @@ export function CompletionModal({ summary, onSaveReflection, onClose }: Completi
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <section className="modal completion-modal" role="dialog" aria-modal="true" aria-labelledby="completion-title">
-        <span className="modal-rune completion-rune">Erfolg</span>
-        <h2 id="completion-title">Quest abgeschlossen</h2>
+      <section
+        className={`modal completion-modal ${didLevelUp ? "completion-modal--level-up" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="completion-title"
+      >
+        <span className="modal-rune completion-rune">{didLevelUp ? "Level-Up" : "Erfolg"}</span>
+        <h2 id="completion-title">{didLevelUp ? `Level ${currentSummary.newLevel} erreicht` : "Quest abgeschlossen"}</h2>
         <p>
           <strong>{currentSummary.questTitle}</strong> ist erledigt. Konstanz schlägt Perfektion.
         </p>
+
         <div className="completion-rewards">
-          <strong>+{currentSummary.reward.coins + currentSummary.reward.bonusCoins} Coins</strong>
-          <strong>+{currentSummary.reward.xp} XP</strong>
+          <strong>
+            <span>Coins</span>+{currentSummary.reward.coins + currentSummary.reward.bonusCoins}
+          </strong>
+          <strong>
+            <span>XP</span>+{currentSummary.reward.xp}
+          </strong>
         </div>
-        {currentSummary.newLevel > currentSummary.previousLevel ? (
-          <div className="level-up-callout">Level-Up: {currentSummary.previousLevel} → {currentSummary.newLevel}</div>
+
+        {didLevelUp ? (
+          <div className="level-up-callout">
+            <span>Level-Up</span>
+            <strong>{currentSummary.previousLevel} → {currentSummary.newLevel}</strong>
+          </div>
         ) : null}
         {currentSummary.unlocked ? (
           <div className="unlock-callout">

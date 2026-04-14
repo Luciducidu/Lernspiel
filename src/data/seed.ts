@@ -9,7 +9,7 @@ export const initialQuests: Quest[] = initialQuestTemplateIndexes.map((templateI
 
 export const initialProgress: UserProgress = {
   coins: 120,
-  xp: 80,
+  xp: 0,
   level: 1,
   gems: 0,
   streak: 0,

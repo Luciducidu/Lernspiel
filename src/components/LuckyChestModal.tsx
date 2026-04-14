@@ -15,16 +15,18 @@ export function LuckyChestModal({ reward, onClose }: LuckyChestModalProps) {
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <section className="modal chest-modal" role="dialog" aria-modal="true" aria-labelledby="chest-title">
+      <section className={`modal chest-modal chest-modal--${reward.tier}`} role="dialog" aria-modal="true" aria-labelledby="chest-title">
         <span className={`modal-rune modal-rune--${reward.tier}`}>{reward.tier} Chest</span>
         <h2 id="chest-title">{reward.title}</h2>
         <p>{reward.description}</p>
-        {reward.coins ? <strong>+{reward.coins} Coins</strong> : null}
-        {reward.gems ? <strong>+{reward.gems} {reward.gems === 1 ? "Gem" : "Gems"}</strong> : null}
-        {reward.activity ? <strong>{reward.activity}</strong> : null}
-        {reward.discountTokens ? <strong>+{reward.discountTokens} Rabatt-Token</strong> : null}
-        {reward.streakProtectionTokens ? <strong>+{reward.streakProtectionTokens} Streak-Schutz</strong> : null}
-        {reward.specialVouchers ? <strong>+{reward.specialVouchers} Spezialgutschein</strong> : null}
+        <div className="chest-reward-grid">
+          {reward.coins ? <strong><span>Coins</span>+{reward.coins}</strong> : null}
+          {reward.gems ? <strong><span>Gems</span>+{reward.gems}</strong> : null}
+          {reward.activity ? <strong><span>Aktivität</span>{reward.activity}</strong> : null}
+          {reward.discountTokens ? <strong><span>Token</span>+{reward.discountTokens} Rabatt</strong> : null}
+          {reward.streakProtectionTokens ? <strong><span>Schutz</span>+{reward.streakProtectionTokens} Streak</strong> : null}
+          {reward.specialVouchers ? <strong><span>Voucher</span>+{reward.specialVouchers}</strong> : null}
+        </div>
         <button ref={closeButtonRef} className="button button--primary" type="button" onClick={onClose}>
           Weiter
         </button>

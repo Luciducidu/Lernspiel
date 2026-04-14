@@ -106,7 +106,13 @@ export function saveQuests(quests: Quest[]): void {
 export function loadProgress(): UserProgress {
   ensureMeta();
   const stored = readJson<Partial<UserProgress>>(PROGRESS_KEY, initialProgress);
-  const xp = clampNumber(stored.xp, initialProgress.xp);
+  const hasEarnedProgress = Boolean(
+    (stored.totalXpEarned ?? 0) > 0 ||
+      (stored.sessionHistory?.length ?? 0) > 0 ||
+      Object.keys(stored.dailyQuickQuestStates ?? {}).length > 0,
+  );
+  const migratedSeedXp = !hasEarnedProgress && stored.xp === 80 ? 0 : stored.xp;
+  const xp = clampNumber(migratedSeedXp, initialProgress.xp);
   const coins = clampNumber(stored.coins, initialProgress.coins);
   const gems = clampNumber(stored.gems, initialProgress.gems);
   const streak = clampNumber(stored.streak, 0);

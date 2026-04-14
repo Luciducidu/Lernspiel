@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
+import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
 import { CompletionModal } from "./components/CompletionModal";
 import { DailyQuickQuestCard } from "./components/DailyQuickQuestCard";
 import { DailyGoalCard } from "./components/DailyGoalCard";
@@ -48,6 +49,7 @@ import {
   drawChestReward,
   getLatestUnlock,
   getLevelInfo,
+  getWeekKey,
   isUnlocked,
   rescueStreak,
   rerollQuest,
@@ -82,6 +84,7 @@ function App() {
   const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
   const [chestReward, setChestReward] = useState<ChestReward | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
+  const [celebration, setCelebration] = useState<CelebrationToastData | null>(null);
   const [toast, setToast] = useState<string>("Bereit für deine nächste Quest.");
 
   const {
@@ -132,6 +135,24 @@ function App() {
 
   function updateQuest(questId: string, update: Partial<Quest>) {
     setQuests((current) => current.map((quest) => (quest.id === questId ? { ...quest, ...update } : quest)));
+  }
+
+  function showCelebration(data: Omit<CelebrationToastData, "id">) {
+    setCelebration({ ...data, id: crypto.randomUUID() });
+  }
+
+  function getClaimedGoalDiff(before: typeof progress, after: typeof progress): string[] {
+    const date = todayKey();
+    const week = getWeekKey();
+    const beforeDaily = new Set(before.dailyGoalProgress[date]?.claimedGoalIds ?? []);
+    const afterDaily = after.dailyGoalProgress[date]?.claimedGoalIds ?? [];
+    const beforeWeekly = new Set(before.weeklyGoalProgress[week]?.claimedGoalIds ?? []);
+    const afterWeekly = after.weeklyGoalProgress[week]?.claimedGoalIds ?? [];
+
+    return [
+      ...afterDaily.filter((goalId) => !beforeDaily.has(goalId)).map((goalId) => `Tagesziel: ${goalId}`),
+      ...afterWeekly.filter((goalId) => !beforeWeekly.has(goalId)).map((goalId) => `Wochenziel: ${goalId}`),
+    ];
   }
 
   function handleCreateQuest(event: FormEvent<HTMLFormElement>) {
@@ -192,7 +213,17 @@ function App() {
         return currentQuest.status === "in_progress" ? { ...currentQuest, status: "accepted" } : currentQuest;
       }),
     );
-    setProgress((current) => applyQuestStart(current));
+    const nextProgress = applyQuestStart(progress);
+    const claimedGoals = getClaimedGoalDiff(progress, nextProgress);
+    setProgress(nextProgress);
+    if (claimedGoals.length > 0) {
+      showCelebration({
+        tone: "reward",
+        title: "Zielbelohnung erhalten",
+        message: "Dein Start hat ein Tages- oder Wochenziel abgeschlossen.",
+        rewards: claimedGoals,
+      });
+    }
     setActiveQuestId(quest.id);
     setActivePage("focus");
     setToast("Fokusmodus gestartet.");
@@ -223,7 +254,9 @@ function App() {
       status: "completed",
       completedAt: new Date().toISOString(),
     });
-    setProgress((current) => applyQuestCompletion(current, quest, reward, focusMinutes));
+    const nextProgress = applyQuestCompletion(progress, quest, reward, focusMinutes);
+    const claimedGoals = getClaimedGoalDiff(progress, nextProgress);
+    setProgress(nextProgress);
     setActiveQuestId(null);
     setCompletionSummary({
       questId: quest.id,
@@ -233,6 +266,14 @@ function App() {
       newLevel,
       unlocked,
     });
+    if (claimedGoals.length > 0 && newLevel === oldLevel) {
+      showCelebration({
+        tone: "reward",
+        title: "Zielbelohnung freigeschaltet",
+        message: "Neben der Quest wurde auch ein Ziel abgeschlossen.",
+        rewards: claimedGoals,
+      });
+    }
     setToast(`${reward.message}${unlockText}`);
   }
 
@@ -281,8 +322,25 @@ function App() {
   }
 
   function handleAnswerDailyQuick(question: MultipleChoiceQuestion, optionId: string) {
+    const oldLevel = getLevelInfo(progress.xp).level;
     const result = answerDailyQuickQuest(progress, question, optionId, dailyQuickQuestionIds, todaysDateKey);
     setProgress(result.progress);
+    const newLevel = getLevelInfo(result.progress.xp).level;
+    if (newLevel > oldLevel) {
+      showCelebration({
+        tone: "level",
+        title: `Level ${newLevel} erreicht`,
+        message: "Eine kurze Daily Quick Quest hat dich ein Level weitergebracht.",
+        rewards: [`+${newLevel - oldLevel} Level`, "+10 Coins", "+5 XP"],
+      });
+    } else if (result.correct) {
+      showCelebration({
+        tone: "success",
+        title: "Daily Quick richtig",
+        message: question.explanation,
+        rewards: ["+10 Coins", "+5 XP"],
+      });
+    }
     setToast(result.message);
   }
 
@@ -315,6 +373,16 @@ function App() {
 
     if (reward) {
       setChestReward(reward);
+      showCelebration({
+        tone: reward.tier === "gold" ? "level" : "reward",
+        title: `${item.name} geöffnet`,
+        message: reward.description,
+        rewards: [
+          reward.coins ? `+${reward.coins} Coins` : "",
+          reward.gems ? `+${reward.gems} ${reward.gems === 1 ? "Gem" : "Gems"}` : "",
+          reward.activity ?? "",
+        ].filter(Boolean),
+      });
     }
 
     setToast(reward ? `${item.name} geöffnet: ${reward.title}.` : `${item.name} gekauft.`);
@@ -730,6 +798,7 @@ function App() {
         ) : null}
       </main>
 
+      <CelebrationToast celebration={celebration} onClose={() => setCelebration(null)} />
       <QuestAcceptModal quest={selectedQuest} onAccept={handleAcceptQuest} onDecline={() => setSelectedQuest(null)} />
       <LuckyChestModal reward={chestReward} onClose={() => setChestReward(null)} />
       <CompletionModal

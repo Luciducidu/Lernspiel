@@ -11,6 +11,7 @@ interface DailyQuickQuestCardProps {
 export function DailyQuickQuestCard({ question, state, compact = false, onAnswer }: DailyQuickQuestCardProps) {
   const answered = Boolean(state?.answeredAt);
   const isCorrect = state?.status === "correct";
+  const correctAnswer = question.options.find((option) => option.id === question.correctOptionId)?.text;
 
   return (
     <article className={`daily-quick-card ${answered ? "daily-quick-card--answered" : ""} ${compact ? "daily-quick-card--compact" : ""}`}>
@@ -56,8 +57,9 @@ export function DailyQuickQuestCard({ question, state, compact = false, onAnswer
       </div>
 
       {answered ? (
-        <div className="daily-quick-feedback">
+        <div className={`daily-quick-feedback ${isCorrect ? "daily-quick-feedback--correct" : "daily-quick-feedback--incorrect"}`}>
           <strong>{isCorrect ? `+${dailyQuickQuestConfig.correctCoins} Coins, +${dailyQuickQuestConfig.correctXp} XP` : "0 Coins"}</strong>
+          {!isCorrect && correctAnswer ? <span>Richtig wäre: {correctAnswer}</span> : null}
           <p>{question.explanation}</p>
         </div>
       ) : (
