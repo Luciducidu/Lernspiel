@@ -2,8 +2,10 @@ import {
   chestRewards,
   completionBonusCoins,
   dailyGoalDefinitions,
+  difficultyRewardMultipliers,
   levelUnlocks,
-  questRewardTable,
+  questTypeRewardBase,
+  timeRewardConfig,
   weeklyGoalDefinitions,
 } from "../data/balancing";
 import { studyQuestTemplates } from "../data/questContent";
@@ -29,17 +31,35 @@ import type {
 } from "../types";
 
 export function calculateQuestReward(quest: Quest): RewardResult {
-  const base = questRewardTable[quest.difficulty];
-  const recommended = quest.recommendedDurationMinutes ?? quest.durationMinutes;
-  const durationDelta = quest.durationMinutes - recommended;
-  const durationBonus = durationDelta >= 25 ? 12 : durationDelta >= 15 ? 8 : durationDelta >= 10 ? 5 : 0;
+  const taskType = quest.taskType ?? "anwendung";
+  const base = questTypeRewardBase[taskType];
+  const difficultyMultiplier = difficultyRewardMultipliers[quest.difficulty];
+  const cappedMinutes = Math.min(timeRewardConfig.softCapMinutes, Math.max(10, quest.durationMinutes));
+  const timeCurve = Math.sqrt(cappedMinutes / 30);
+  const scaledCoins = Math.round(base.coins * difficultyMultiplier);
+  const scaledXp = Math.round(base.xp * difficultyMultiplier);
+  const timeBonusCoins = Math.round(base.coins * timeRewardConfig.coinBonusRatio * timeCurve);
+  const timeBonusXp = Math.round(base.xp * timeRewardConfig.xpBonusRatio * timeCurve);
+  const totalCoins = scaledCoins + completionBonusCoins + timeBonusCoins;
+  const totalXp = scaledXp + timeBonusXp;
 
   return {
-    coins: base.coins,
-    xp: base.xp,
-    bonusCoins: completionBonusCoins + durationBonus,
+    coins: scaledCoins,
+    xp: totalXp,
+    bonusCoins: completionBonusCoins + timeBonusCoins,
     reflectionBonusPrepared: true,
-    message: `Quest abgeschlossen: +${base.coins + completionBonusCoins + durationBonus} Coins und +${base.xp} XP.`,
+    message: `Quest abgeschlossen: +${totalCoins} Coins und +${totalXp} XP.`,
+    formula: {
+      baseCoins: base.coins,
+      baseXp: base.xp,
+      difficultyMultiplier,
+      timeBonusCoins,
+      timeBonusXp,
+      completionBonusCoins,
+      totalCoins,
+      totalXp,
+      durationMinutes: quest.durationMinutes,
+    },
   };
 }
 
@@ -140,7 +160,7 @@ export function getStreakState(progress: UserProgress): StreakState {
 
   return {
     currentStreak: isStillCurrent ? progress.streak : 0,
-    longestStreak: progress.longestStreak,
+    longestStreak: Math.max(progress.longestStreak, progress.streak, getBestConsecutiveRun(history)),
     lastCompletedDate: progress.lastCompletedDate,
     completedDaysHistory: history,
     canRescue: missedExactlyYesterday && !history.includes(today),
@@ -190,14 +210,36 @@ function applyGoalReward(progress: UserProgress, reward = {} as NonNullable<Dail
   };
 }
 
+function getBestConsecutiveRun(dateKeys: string[]): number {
+  const sorted = [...new Set(dateKeys)].sort();
+  let best = 0;
+  let current = 0;
+  let previous: string | null = null;
+
+  for (const dateKey of sorted) {
+    if (!previous) {
+      current = 1;
+    } else {
+      current = addDays(previous, 1) === dateKey ? current + 1 : 1;
+    }
+    previous = dateKey;
+    best = Math.max(best, current);
+  }
+
+  return best;
+}
+
 export function buildDailyGoals(progress: UserProgress): DailyGoal[] {
   const date = todayKey();
   const progressForDay = progress.dailyGoalProgress[date]?.claimedGoalIds ?? [];
   const completedToday = progress.sessionHistory.filter((session) => session.dateKey === date).length;
+  const sessionsToday = progress.sessionHistory.filter((session) => session.dateKey === date);
   const focusToday = progress.sessionHistory
     .filter((session) => session.dateKey === date)
     .reduce((sum, session) => sum + session.durationMinutes, 0);
   const startedToday = progress.startedQuestDaysHistory.includes(date) ? 1 : 0;
+  const quickAnsweredToday = Object.values(progress.dailyQuickQuestStates[date] ?? {}).filter((state) => state.answeredAt).length;
+  const focusSubjectToday = sessionsToday.some((session) => ["Deutsch", "PB", "Mathe"].includes(session.category)) ? 1 : 0;
 
   return dailyGoalDefinitions.map((goal) => ({
     ...goal,
@@ -206,8 +248,25 @@ export function buildDailyGoals(progress: UserProgress): DailyGoal[] {
         ? completedToday
         : goal.id === "daily-start-1"
           ? startedToday
-          : focusToday,
+          : goal.id === "daily-focus-30"
+            ? focusToday
+            : goal.id === "daily-quick-all"
+              ? quickAnsweredToday
+              : focusSubjectToday,
     claimed: progressForDay.includes(goal.id),
+    status: progressForDay.includes(goal.id)
+      ? "claimed"
+      : (goal.id === "daily-complete-1" || goal.id === "daily-complete-2"
+            ? completedToday
+            : goal.id === "daily-start-1"
+              ? startedToday
+              : goal.id === "daily-focus-30"
+                ? focusToday
+                : goal.id === "daily-quick-all"
+                  ? quickAnsweredToday
+                  : focusSubjectToday) >= goal.target
+        ? "available"
+        : "locked",
   }));
 }
 
@@ -219,18 +278,47 @@ export function buildWeeklyGoals(progress: UserProgress): DailyGoal[] {
   const focus = sessionsThisWeek.reduce((sum, session) => sum + session.durationMinutes, 0);
   const days = new Set(sessionsThisWeek.map((session) => session.dateKey)).size;
   const chests = progress.chestOpenDates.filter((date) => getWeekKey(new Date(`${date}T12:00:00`)) === week).length;
+  const subjectCount = (subject: Subject) => sessionsThisWeek.filter((session) => session.category === subject).length;
+  const consecutiveDays = getBestConsecutiveRun([...new Set(sessionsThisWeek.map((session) => session.dateKey))]);
 
   return weeklyGoalDefinitions.map((goal) => ({
     ...goal,
     current:
       goal.id === "weekly-complete-5"
         ? completed
-        : goal.id === "weekly-focus-120"
+        : goal.id === "weekly-focus-180"
           ? focus
           : goal.id === "weekly-days-4"
             ? days
-            : chests,
+            : goal.id === "weekly-chests-2"
+              ? chests
+              : goal.id === "weekly-mathe-3"
+                ? subjectCount("Mathe")
+                : goal.id === "weekly-deutsch-2"
+                  ? subjectCount("Deutsch")
+                  : goal.id === "weekly-pb-2"
+                    ? subjectCount("PB")
+                    : consecutiveDays,
     claimed: progressForWeek.includes(goal.id),
+    status: progressForWeek.includes(goal.id)
+      ? "claimed"
+      : (goal.id === "weekly-complete-5"
+            ? completed
+            : goal.id === "weekly-focus-180"
+              ? focus
+              : goal.id === "weekly-days-4"
+                ? days
+                : goal.id === "weekly-chests-2"
+                  ? chests
+                  : goal.id === "weekly-mathe-3"
+                    ? subjectCount("Mathe")
+                    : goal.id === "weekly-deutsch-2"
+                      ? subjectCount("Deutsch")
+                      : goal.id === "weekly-pb-2"
+                        ? subjectCount("PB")
+                        : consecutiveDays) >= goal.target
+        ? "available"
+        : "locked",
   }));
 }
 

@@ -6,7 +6,7 @@ import { getLevelInfo, todayKey } from "./gameRules";
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
-const APP_DATA_VERSION = 4;
+const APP_DATA_VERSION = 5;
 
 interface StorageMeta {
   appDataVersion: number;
@@ -149,6 +149,7 @@ export function loadProgress(): UserProgress {
         ? [stored.lastCompletedDate]
         : [],
     rescuedStreakDates: Array.isArray(stored.rescuedStreakDates) ? stored.rescuedStreakDates : [],
+    streakRewardClaims: Array.isArray(stored.streakRewardClaims) ? stored.streakRewardClaims : [],
     totalCoinsEarned: clampNumber(stored.totalCoinsEarned, 0),
     totalCoinsSpent: clampNumber(stored.totalCoinsSpent, 0),
     totalXpEarned: clampNumber(stored.totalXpEarned, 0),

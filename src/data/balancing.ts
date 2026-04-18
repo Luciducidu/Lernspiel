@@ -6,7 +6,7 @@ import type {
   GemAction,
   GemSpecialAction,
   LevelUnlock,
-  Quest,
+  QuestTaskType,
   ShopItem,
 } from "../types";
 
@@ -17,6 +17,27 @@ export const questRewardTable: Record<Difficulty, { coins: number; xp: number }>
 };
 
 export const completionBonusCoins = 15;
+
+export const questTypeRewardBase: Record<QuestTaskType, { coins: number; xp: number }> = {
+  recall: { coins: 38, xp: 26 },
+  struktur: { coins: 52, xp: 36 },
+  analyse: { coins: 76, xp: 56 },
+  anwendung: { coins: 70, xp: 50 },
+  chatgpt_training: { coins: 56, xp: 40 },
+  abi_training: { coins: 102, xp: 76 },
+};
+
+export const difficultyRewardMultipliers: Record<Difficulty, number> = {
+  easy: 0.9,
+  medium: 1,
+  hard: 1.25,
+};
+
+export const timeRewardConfig = {
+  softCapMinutes: 90,
+  coinBonusRatio: 0.18,
+  xpBonusRatio: 0.12,
+};
 
 export const dailyQuickQuestConfig = {
   questsPerDay: 5,
@@ -370,6 +391,20 @@ export const dailyGoalDefinitions: Array<Omit<DailyGoal, "current" | "claimed">>
     target: 30,
     reward: { coins: 25, xp: 10 },
   },
+  {
+    id: "daily-quick-all",
+    title: "Alle Daily Quick Questions",
+    description: "Kurze Abi-Wiederholung komplett erledigen.",
+    target: 5,
+    reward: { coins: 25, xp: 10 },
+  },
+  {
+    id: "daily-focus-subject",
+    title: "1 Quest im Schwerpunktfach",
+    description: "Deutsch, PB oder Mathe bewusst priorisieren.",
+    target: 1,
+    reward: { coins: 25 },
+  },
 ];
 
 export const weeklyGoalDefinitions: Array<Omit<DailyGoal, "current" | "claimed">> = [
@@ -381,10 +416,10 @@ export const weeklyGoalDefinitions: Array<Omit<DailyGoal, "current" | "claimed">
     reward: { coins: 80 },
   },
   {
-    id: "weekly-focus-120",
-    title: "120 Minuten Fokus",
-    description: "Zwei starke Stunden gesammelt.",
-    target: 120,
+    id: "weekly-focus-180",
+    title: "180 Minuten Fokus",
+    description: "Drei starke Stunden gesammelt.",
+    target: 180,
     reward: { coins: 120 },
   },
   {
@@ -401,42 +436,32 @@ export const weeklyGoalDefinitions: Array<Omit<DailyGoal, "current" | "claimed">
     target: 2,
     reward: { xp: 50 },
   },
-];
-
-export const questTemplates: Array<Pick<Quest, "title" | "category" | "durationMinutes" | "difficulty" | "note">> = [
   {
-    title: "Karteikarten aktiv abfragen",
-    category: "Allgemein",
-    durationMinutes: 20,
-    difficulty: "easy",
-    note: "Nur laut beantworten, nicht nur lesen.",
+    id: "weekly-mathe-3",
+    title: "3 Mathequests",
+    description: "Rechenroutine in der Woche aufbauen.",
+    target: 3,
+    reward: { coins: 80, xp: 25 },
   },
   {
-    title: "Fehler aus der letzten Aufgabe verbessern",
-    category: "Mathe",
-    durationMinutes: 25,
-    difficulty: "medium",
-    note: "Erst Ursache finden, dann neu lösen.",
+    id: "weekly-deutsch-2",
+    title: "2 Deutschquests",
+    description: "Deutsch bleibt wegen der ersten Klausur oben.",
+    target: 2,
+    reward: { coins: 70, xp: 30 },
   },
   {
-    title: "Eine Seite Zusammenfassung schreiben",
-    category: "Deutsch",
-    durationMinutes: 30,
-    difficulty: "medium",
-    note: "In eigenen Worten, ohne Copy-Paste.",
+    id: "weekly-pb-2",
+    title: "2 PB-Quests",
+    description: "Politische Begriffe und Strukturen sichern.",
+    target: 2,
+    reward: { coins: 70, xp: 30 },
   },
   {
-    title: "Schwieriges Thema erklären",
-    category: "Biologie",
-    durationMinutes: 35,
-    difficulty: "hard",
-    note: "So erklären, als würdest du es jemandem beibringen.",
-  },
-  {
-    title: "Vokabel-Sprint mit Wiederholung",
-    category: "Englisch",
-    durationMinutes: 15,
-    difficulty: "easy",
-    note: "Erst alte, dann neue Wörter.",
+    id: "weekly-streak-3",
+    title: "3 Tage hintereinander aktiv",
+    description: "Eine kleine Serie in der Woche halten.",
+    target: 3,
+    reward: { gems: 1 },
   },
 ];

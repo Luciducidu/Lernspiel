@@ -34,6 +34,12 @@ export type QuestOutputType =
 
 export type TimeCategory = "kurz" | "normal" | "lang";
 
+export interface CustomQuestDurationOption {
+  minutes: number;
+  isQuickPick: boolean;
+  label: string;
+}
+
 export type SubjectPriority = "high" | "medium" | "low" | "paused";
 
 export interface SubjectPrioritySetting {
@@ -52,6 +58,7 @@ export interface Quest {
   taskType?: QuestTaskType;
   mode?: QuestMode;
   outputType?: QuestOutputType;
+  isCustom?: boolean;
   durationMinutes: number;
   recommendedDurationMinutes?: number;
   durationOptions?: number[];
@@ -107,6 +114,7 @@ export interface UserProgress {
   lastCompletedDate?: string;
   completedDaysHistory: string[];
   rescuedStreakDates: string[];
+  streakRewardClaims: StreakRewardClaim[];
   completedToday: number;
   purchasedRewards: string[];
   discountTokens: number;
@@ -146,6 +154,19 @@ export interface RewardResult {
   bonusCoins: number;
   reflectionBonusPrepared: boolean;
   message: string;
+  formula?: RewardFormulaResult;
+}
+
+export interface RewardFormulaResult {
+  baseCoins: number;
+  baseXp: number;
+  difficultyMultiplier: number;
+  timeBonusCoins: number;
+  timeBonusXp: number;
+  completionBonusCoins: number;
+  totalCoins: number;
+  totalXp: number;
+  durationMinutes: number;
 }
 
 export type ReflectionMood = "good" | "okay" | "hard";
@@ -180,6 +201,19 @@ export interface DailyGoal {
   target: number;
   reward?: GoalReward;
   claimed?: boolean;
+  status?: GoalRewardStatus;
+}
+
+export type GoalRewardStatus = "locked" | "available" | "claimed";
+
+export interface DailyQuest extends DailyGoal {
+  resetKey: string;
+  scope: "daily";
+}
+
+export interface WeeklyQuest extends DailyGoal {
+  resetKey: string;
+  scope: "weekly";
 }
 
 export interface GoalReward {
@@ -221,6 +255,47 @@ export interface StreakState {
   completedDaysHistory: string[];
   canRescue: boolean;
   rescueDate?: string;
+}
+
+export type StreakRewardStatus = "locked" | "available" | "claimed";
+
+export interface StreakReward {
+  id: string;
+  milestoneDays: number;
+  title: string;
+  description: string;
+  reward: GoalReward & {
+    badge?: string;
+    luckyChestTier?: ChestTier;
+    discountTokens?: number;
+  };
+  status: StreakRewardStatus;
+}
+
+export interface StreakRewardClaim {
+  rewardId: string;
+  milestoneDays: number;
+  claimedAt: string;
+}
+
+export interface CalendarActivityDay {
+  dateKey: string;
+  dayOfMonth: number;
+  isToday: boolean;
+  isCurrentMonth: boolean;
+  questCount: number;
+  focusMinutes: number;
+  coinsEarned: number;
+  active: boolean;
+  intensity: 0 | 1 | 2 | 3;
+}
+
+export interface ActivitySummary {
+  activeDaysLast30: number;
+  currentMonthActiveDays: number;
+  currentMonthFocusMinutes: number;
+  bestWeekFocusMinutes: number;
+  selectedDay?: CalendarActivityDay;
 }
 
 export type GemActionType = "streak_rescue" | "quest_reroll" | "special_purchase";

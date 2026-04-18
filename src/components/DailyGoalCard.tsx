@@ -5,8 +5,11 @@ export function DailyGoalCard({ goal }: { goal: DailyGoal }) {
   const isDone = goal.current >= goal.target;
 
   return (
-    <article className={`daily-goal ${isDone ? "daily-goal--done" : ""}`}>
+    <article className={`daily-goal ${isDone ? "daily-goal--done" : ""} daily-goal--${goal.status ?? "locked"}`}>
       <div>
+        <span className={`goal-status goal-status--${goal.status ?? "locked"}`}>
+          {goal.claimed ? "Belohnung erhalten" : isDone ? "Abholbereit" : "Offen"}
+        </span>
         <strong>{goal.title}</strong>
         <p>{goal.description}</p>
         {goal.reward ? (

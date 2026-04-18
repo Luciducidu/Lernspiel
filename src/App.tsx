@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { ActiveQuestCard } from "./components/ActiveQuestCard";
+import { ActivityCalendar } from "./components/ActivityCalendar";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
@@ -18,6 +19,7 @@ import { ShopSection } from "./components/ShopSection";
 import { SidebarNavigation } from "./components/SidebarNavigation";
 import { StatsPanel } from "./components/StatsPanel";
 import { SubjectPriorityCard } from "./components/SubjectPriorityCard";
+import { StreakRewardsPanel } from "./components/StreakRewardsPanel";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { gemSpecialActions } from "./data/balancing";
@@ -62,7 +64,13 @@ import {
 } from "./utils/gameRules";
 import { loadProgress, loadQuests, saveProgress, saveQuests } from "./utils/storage";
 import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
-import { durationOptionsForQuest, normalizeQuestDuration, recommendedDurationForQuest } from "./utils/durations";
+import {
+  customQuestDurationOptions,
+  normalizeCustomQuestDuration,
+  normalizeQuestDuration,
+  recommendedDurationForQuest,
+} from "./utils/durations";
+import { buildStreakRewards, claimStreakReward, getNextStreakReward } from "./utils/streakRewards";
 
 const emptyForm = {
   title: "",
@@ -81,7 +89,9 @@ function App() {
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
   const [questTab, setQuestTab] = useState<"daily" | "open" | "accepted" | "completed">("daily");
-  const [progressTab, setProgressTab] = useState<"overview" | "goals" | "stats" | "history" | "unlocks">("overview");
+  const [progressTab, setProgressTab] = useState<
+    "overview" | "daily" | "weekly" | "streaks" | "calendar" | "stats" | "history" | "unlocks"
+  >("overview");
   const [subjectFilter, setSubjectFilter] = useState<"all" | Subject>("all");
   const [questTypeFilter, setQuestTypeFilter] = useState<"all" | QuestType>("all");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | Difficulty>("all");
@@ -125,8 +135,10 @@ function App() {
     Boolean(getDailyQuickState(progress, question.id, todaysDateKey)?.answeredAt),
   ).length;
   const topicOptions = subjectTopics[questDraft.subject];
-  const draftDurationOptions = durationOptionsForQuest(questDraft);
+  const draftDurationOptions = customQuestDurationOptions(questDraft.durationMinutes);
   const draftRecommendedDuration = recommendedDurationForQuest(questDraft);
+  const streakRewards = buildStreakRewards(progress);
+  const nextStreakReward = getNextStreakReward(progress);
   const filteredStudyQuests = sortedQuests.filter((quest) => {
     const questSubject = inferQuestSubject(quest);
     return (
@@ -153,8 +165,7 @@ function App() {
 
   function updateQuestDraft(update: Partial<typeof questDraft>) {
     const next = { ...questDraft, ...update };
-    const normalized = normalizeQuestDuration(next);
-    setQuestDraft({ ...next, durationMinutes: normalized.durationMinutes });
+    setQuestDraft({ ...next, durationMinutes: normalizeCustomQuestDuration(next.durationMinutes) });
   }
 
   function showCelebration(data: Omit<CelebrationToastData, "id">) {
@@ -190,6 +201,7 @@ function App() {
       id: crypto.randomUUID(),
       title,
       type: "study",
+      isCustom: true,
       category: questDraft.subject,
       subject: questDraft.subject,
       topic,
@@ -365,6 +377,28 @@ function App() {
     setQuests((current) => current.map((item) => (item.id === quest.id ? nextQuest : item)));
     setProgress((current) => spendGems(current, 1));
     setToast("Quest neu gewürfelt. Prüfe sie und nimm sie bewusst an.");
+  }
+
+  function handleClaimStreakReward(rewardId: string) {
+    const result = claimStreakReward(progress, rewardId);
+    if (!result.ok || !result.reward) {
+      setToast(result.message);
+      return;
+    }
+
+    setProgress(result.progress);
+    showCelebration({
+      tone: result.reward.milestoneDays >= 30 ? "level" : "reward",
+      title: result.reward.title,
+      message: "Streak-Belohnung abgeholt.",
+      rewards: [
+        result.reward.reward.coins ? `+${result.reward.reward.coins} Coins` : "",
+        result.reward.reward.xp ? `+${result.reward.reward.xp} XP` : "",
+        result.reward.reward.gems ? `+${result.reward.reward.gems} Gems` : "",
+        result.reward.reward.badge ? `Badge: ${result.reward.reward.badge}` : "",
+      ].filter(Boolean),
+    });
+    setToast(result.message);
   }
 
   function handleAnswerDailyQuick(question: MultipleChoiceQuestion, optionId: string) {
@@ -646,20 +680,35 @@ function App() {
                 </label>
                 <div className="quest-form__wide">
                   <span className="form-label">Dauer wählen</span>
+                  <div className="custom-duration-control">
+                    <input
+                      aria-label="Dauer der eigenen Quest"
+                      type="range"
+                      min="10"
+                      max="120"
+                      step="5"
+                      value={questDraft.durationMinutes}
+                      onChange={(event) => setQuestDraft({ ...questDraft, durationMinutes: Number(event.target.value) })}
+                    />
+                    <strong>{questDraft.durationMinutes} Min</strong>
+                  </div>
                   <div className="duration-chip-row duration-chip-row--form">
-                    {draftDurationOptions.map((duration) => (
+                    {draftDurationOptions.map((option) => (
                       <button
-                        className={`duration-chip ${duration === questDraft.durationMinutes ? "duration-chip--selected" : ""} ${
-                          duration === draftRecommendedDuration ? "duration-chip--recommended" : ""
+                        className={`duration-chip ${option.minutes === questDraft.durationMinutes ? "duration-chip--selected" : ""} ${
+                          option.minutes === draftRecommendedDuration ? "duration-chip--recommended" : ""
                         }`}
-                        key={duration}
+                        key={option.minutes}
                         type="button"
-                        onClick={() => setQuestDraft({ ...questDraft, durationMinutes: duration })}
+                        onClick={() => setQuestDraft({ ...questDraft, durationMinutes: option.minutes })}
                       >
-                        {duration} Min {duration === draftRecommendedDuration ? "empfohlen" : ""}
+                        {option.label} {option.minutes === draftRecommendedDuration ? "empfohlen" : ""}
                       </button>
                     ))}
                   </div>
+                  <small className="duration-helper">
+                    Eigene Quests sind flexibel in 5-Minuten-Schritten von 10 bis 120 Minuten. Die Empfehlung bleibt als Orientierung sichtbar.
+                  </small>
                 </div>
                 <label className="quest-form__wide">
                   Optionale Notiz
@@ -827,7 +876,10 @@ function App() {
           <div className="page-stack">
             <div className="tabs" role="tablist" aria-label="Fortschrittsbereiche">
               <button className={progressTab === "overview" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("overview")}>Übersicht</button>
-              <button className={progressTab === "goals" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("goals")}>Ziele</button>
+              <button className={progressTab === "daily" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("daily")}>Tagesquests</button>
+              <button className={progressTab === "weekly" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("weekly")}>Wochenquests</button>
+              <button className={progressTab === "streaks" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("streaks")}>Streaks</button>
+              <button className={progressTab === "calendar" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("calendar")}>Kalender</button>
               <button className={progressTab === "stats" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("stats")}>Statistik</button>
               <button className={progressTab === "history" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("history")}>Historie</button>
               <button className={progressTab === "unlocks" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("unlocks")}>Unlocks</button>
@@ -841,27 +893,59 @@ function App() {
                   <DashboardCard label="Fokus Woche" value={`${focusSummary.weekMinutes} Min`} detail={`${focusSummary.totalMinutes} Min gesamt`} />
                 </section>
                 <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
+                {nextStreakReward ? (
+                  <section className="content-card">
+                    <div className="section-heading">
+                      <span className="eyebrow">Nächste Streak-Belohnung</span>
+                      <h2>{nextStreakReward.title}</h2>
+                    </div>
+                    <p>{nextStreakReward.description}</p>
+                    <ProgressBar
+                      value={Math.min(streakState.longestStreak, nextStreakReward.milestoneDays)}
+                      max={nextStreakReward.milestoneDays}
+                      label="Streak-Fortschritt"
+                    />
+                  </section>
+                ) : null}
               </>
             ) : null}
 
-            {progressTab === "goals" ? (
-              <section className="two-column-page">
-                <div className="content-card">
-                  <div className="section-heading">
-                    <span className="eyebrow">Tagesziele</span>
-                    <h2>Heute</h2>
+            {progressTab === "daily" ? (
+              <section className="content-card goal-overview-card">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">Tagesquests</span>
+                    <h2>Heute bis Mitternacht</h2>
                   </div>
-                  <div className="daily-goal-grid">{dailyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+                  <span className="reset-hint">Reset: täglich 00:00</span>
                 </div>
-                <div className="content-card">
-                  <div className="section-heading">
-                    <span className="eyebrow">Wochenziele</span>
-                    <h2>Diese Woche</h2>
-                  </div>
-                  <div className="daily-goal-grid">{weeklyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
-                </div>
+                <div className="daily-goal-grid">{dailyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
               </section>
             ) : null}
+
+            {progressTab === "weekly" ? (
+              <section className="content-card goal-overview-card goal-overview-card--weekly">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">Wochenquests</span>
+                    <h2>Diese Lernwoche</h2>
+                  </div>
+                  <span className="reset-hint">Reset: Montag 00:00</span>
+                </div>
+                <div className="daily-goal-grid weekly-goal-grid">{weeklyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+              </section>
+            ) : null}
+
+            {progressTab === "streaks" ? (
+              <StreakRewardsPanel
+                currentStreak={streakState.currentStreak}
+                longestStreak={streakState.longestStreak}
+                rewards={streakRewards}
+                onClaim={handleClaimStreakReward}
+              />
+            ) : null}
+
+            {progressTab === "calendar" ? <ActivityCalendar progress={progress} /> : null}
 
             {progressTab === "stats" ? <StatsPanel stats={statsSummary} /> : null}
             {progressTab === "history" ? <SessionHistory sessions={progress.sessionHistory} /> : null}

@@ -12,6 +12,7 @@ export const initialProgress: UserProgress = {
   longestStreak: 0,
   completedDaysHistory: [],
   rescuedStreakDates: [],
+  streakRewardClaims: [],
   completedToday: 0,
   purchasedRewards: [],
   discountTokens: 0,

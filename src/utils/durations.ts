@@ -1,6 +1,10 @@
-import type { Difficulty, Quest, QuestTaskType, Subject, TimeCategory } from "../types";
+import type { CustomQuestDurationOption, Difficulty, Quest, QuestTaskType, Subject, TimeCategory } from "../types";
 
 export const allowedDurations = [10, 15, 20, 25, 30, 35, 45, 60] as const;
+export const customQuestDurationMin = 10;
+export const customQuestDurationMax = 120;
+export const customQuestDurationStep = 5;
+export const customQuestQuickDurations = [15, 20, 25, 30, 45, 60, 90] as const;
 
 const presetsByTaskType: Record<QuestTaskType, { options: number[]; defaultDuration: number }> = {
   recall: { options: [10, 15, 20], defaultDuration: 15 },
@@ -23,6 +27,11 @@ function categoryForDuration(minutes: number): TimeCategory {
   return "lang";
 }
 
+function clampCustomDuration(minutes: number): number {
+  const rounded = Math.round(minutes / customQuestDurationStep) * customQuestDurationStep;
+  return Math.min(customQuestDurationMax, Math.max(customQuestDurationMin, rounded));
+}
+
 function subjectPreference(subject?: Subject): number[] {
   if (subject === "PB") return [20, 25, 30, 45];
   if (subject === "Deutsch") return [20, 25, 30, 35, 45];
@@ -34,7 +43,24 @@ function closestAllowed(value: number, options: number[]): number {
   return [...options].sort((a, b) => Math.abs(a - value) - Math.abs(b - value))[0] ?? 25;
 }
 
-type DurationQuestInput = Partial<Pick<Quest, "taskType" | "subject" | "difficulty" | "mode" | "outputType" | "durationMinutes">>;
+type DurationQuestInput = Partial<
+  Pick<Quest, "taskType" | "subject" | "difficulty" | "mode" | "outputType" | "durationMinutes" | "isCustom">
+>;
+
+export function customQuestDurationOptions(selectedMinutes = 30): CustomQuestDurationOption[] {
+  const selected = clampCustomDuration(selectedMinutes);
+  const values = [...new Set([...customQuestQuickDurations, selected])].sort((a, b) => a - b);
+
+  return values.map((minutes) => ({
+    minutes,
+    isQuickPick: customQuestQuickDurations.includes(minutes as (typeof customQuestQuickDurations)[number]),
+    label: `${minutes} Min`,
+  }));
+}
+
+export function normalizeCustomQuestDuration(minutes: number): number {
+  return clampCustomDuration(minutes);
+}
 
 export function durationOptionsForQuest(quest: DurationQuestInput): number[] {
   const preset = quest.taskType ? presetsByTaskType[quest.taskType] : { options: [20, 25, 30], defaultDuration: 25 };
@@ -78,6 +104,25 @@ export function normalizeQuestDuration<T extends Partial<Quest>>(quest: T): T & 
   durationOptions: number[];
   timeCategory: TimeCategory;
 } {
+  if (quest.isCustom) {
+    const selected = clampCustomDuration(Number(quest.durationMinutes) || 30);
+    const recommended = recommendedDurationForQuest(quest);
+    const options = [...new Set([recommended, ...customQuestQuickDurations, selected])].sort((a, b) => a - b);
+
+    return {
+      ...quest,
+      durationMinutes: selected,
+      recommendedDurationMinutes: recommended,
+      durationOptions: options,
+      timeCategory: categoryForDuration(selected),
+    } as T & {
+      durationMinutes: number;
+      recommendedDurationMinutes: number;
+      durationOptions: number[];
+      timeCategory: TimeCategory;
+    };
+  }
+
   const options = durationOptionsForQuest(quest);
   const recommended = recommendedDurationForQuest(quest);
   const selected = options.includes(Number(quest.durationMinutes)) ? Number(quest.durationMinutes) : recommended;
