@@ -342,9 +342,15 @@ export type ChestRewardType =
   | "streak_protection"
   | "special_voucher";
 
+export type RewardRarity = "common" | "rare" | "epic";
+
+export type RewardCategory = "coins" | "gems" | "activity" | "streak" | "special" | "bonus";
+
 export interface ChestReward {
   type: ChestRewardType;
   tier: ChestTier;
+  rarity: RewardRarity;
+  category: RewardCategory;
   title: string;
   description: string;
   coins?: number;

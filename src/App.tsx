@@ -4,6 +4,7 @@ import { ActivityCalendar } from "./components/ActivityCalendar";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
+import { ChestContentsModal } from "./components/ChestContentsModal";
 import { CompletionModal } from "./components/CompletionModal";
 import { DailyQuickQuestCard } from "./components/DailyQuickQuestCard";
 import { DailyGoalCard } from "./components/DailyGoalCard";
@@ -22,13 +23,14 @@ import { SubjectPriorityCard } from "./components/SubjectPriorityCard";
 import { StreakRewardsPanel } from "./components/StreakRewardsPanel";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
-import { gemSpecialActions } from "./data/balancing";
+import { chestRewards, gemSpecialActions } from "./data/balancing";
 import { modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { usePersistentState } from "./hooks/usePersistentState";
 import type {
   AppPage,
   ChestReward,
+  ChestTier,
   CompletionSummary,
   Difficulty,
   MultipleChoiceQuestion,
@@ -100,6 +102,7 @@ function App() {
   const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
   const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
   const [chestReward, setChestReward] = useState<ChestReward | null>(null);
+  const [previewChestTier, setPreviewChestTier] = useState<ChestTier | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const [celebration, setCelebration] = useState<CelebrationToastData | null>(null);
   const [toast, setToast] = useState<string>("Bereit für deine nächste Quest.");
@@ -482,6 +485,14 @@ function App() {
     setToast(reward ? `${item.name} geöffnet: ${reward.title}.` : `${item.name} gekauft.`);
   }
 
+  function handlePreviewChest(item: ShopItem) {
+    if (!item.isLuckyChest || !item.chestTier) {
+      return;
+    }
+
+    setPreviewChestTier(item.chestTier);
+  }
+
   function handleChangeSubjectPriority(id: SubjectPrioritySetting["id"], priority: SubjectPriority) {
     setProgress((current) => ({
       ...current,
@@ -844,6 +855,7 @@ function App() {
               coins={progress.coins}
               level={levelInfo.level}
               onBuy={handleBuyItem}
+              onPreviewChest={handlePreviewChest}
             />
             <ShopSection
               eyebrow="Lucky Chests"
@@ -853,6 +865,7 @@ function App() {
               coins={progress.coins}
               level={levelInfo.level}
               onBuy={handleBuyItem}
+              onPreviewChest={handlePreviewChest}
             />
             <ShopSection
               eyebrow="Premium-Shop"
@@ -862,6 +875,7 @@ function App() {
               coins={progress.coins}
               level={levelInfo.level}
               onBuy={handleBuyItem}
+              onPreviewChest={handlePreviewChest}
             />
             <GemActionPanel gems={progress.gems} streakState={streakState} onRescueStreak={handleRescueStreak} />
             <section className="content-card">
@@ -1002,7 +1016,12 @@ function App() {
 
       <CelebrationToast celebration={celebration} onClose={() => setCelebration(null)} />
       <QuestAcceptModal quest={selectedQuest} onAccept={handleAcceptQuest} onDecline={() => setSelectedQuest(null)} />
-      <LuckyChestModal reward={chestReward} onClose={() => setChestReward(null)} />
+      <ChestContentsModal
+        tier={previewChestTier}
+        rewards={previewChestTier ? chestRewards[previewChestTier] : []}
+        onClose={() => setPreviewChestTier(null)}
+      />
+      <LuckyChestModal reward={chestReward} rewardPool={chestReward ? chestRewards[chestReward.tier] : []} onClose={() => setChestReward(null)} />
       <CompletionModal
         summary={completionSummary}
         onSaveReflection={handleSaveReflection}

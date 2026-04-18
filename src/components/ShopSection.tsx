@@ -9,9 +9,10 @@ interface ShopSectionProps {
   coins: number;
   level: number;
   onBuy: (item: ShopItem) => void;
+  onPreviewChest?: (item: ShopItem) => void;
 }
 
-export function ShopSection({ title, eyebrow, variant, items, coins, level, onBuy }: ShopSectionProps) {
+export function ShopSection({ title, eyebrow, variant, items, coins, level, onBuy, onPreviewChest }: ShopSectionProps) {
   return (
     <section className={`panel shop-section shop-section--${variant}`}>
       <div className="section-heading">
@@ -21,7 +22,7 @@ export function ShopSection({ title, eyebrow, variant, items, coins, level, onBu
       {items.length > 0 ? (
         <div className="shop-grid">
           {items.map((item) => (
-            <ShopItemCard key={item.id} item={item} coins={coins} level={level} onBuy={onBuy} />
+            <ShopItemCard key={item.id} item={item} coins={coins} level={level} onBuy={onBuy} onPreviewChest={onPreviewChest} />
           ))}
         </div>
       ) : (
