@@ -6,7 +6,7 @@ import { getLevelInfo, todayKey } from "./gameRules";
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
-const APP_DATA_VERSION = 5;
+const APP_DATA_VERSION = 6;
 
 interface StorageMeta {
   appDataVersion: number;
@@ -58,6 +58,7 @@ function normalizeQuest(quest: Quest): Quest {
     subject,
     topic: quest.topic?.trim() || undefined,
     durationMinutes: Math.max(1, Number(quest.durationMinutes) || 25),
+    extraTimeMinutes: clampNumber(quest.extraTimeMinutes, 0),
     accumulatedPausedMs: clampNumber(quest.accumulatedPausedMs, 0),
     status,
     createdAt: quest.createdAt || new Date().toISOString(),
@@ -162,6 +163,7 @@ export function loadProgress(): UserProgress {
     dailyQuickQuestStates: stored.dailyQuickQuestStates ?? {},
     dailyQuickBonusDates: Array.isArray(stored.dailyQuickBonusDates) ? stored.dailyQuickBonusDates : [],
     sessionHistory: Array.isArray(stored.sessionHistory) ? stored.sessionHistory : [],
+    soundEnabled: typeof stored.soundEnabled === "boolean" ? stored.soundEnabled : initialProgress.soundEnabled,
     subjectPriorities: Array.isArray(stored.subjectPriorities)
       ? initialProgress.subjectPriorities.map((subject) => ({
           ...subject,

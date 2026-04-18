@@ -30,6 +30,7 @@ export const initialProgress: UserProgress = {
   dailyQuickQuestStates: {},
   dailyQuickBonusDates: [],
   sessionHistory: [],
+  soundEnabled: true,
   subjectPriorities: [
     { id: "pb", label: "PB", priority: "high" },
     { id: "mathe", label: "Mathe", priority: "high" },

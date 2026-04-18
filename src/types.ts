@@ -63,6 +63,7 @@ export interface Quest {
   recommendedDurationMinutes?: number;
   durationOptions?: number[];
   timeCategory?: TimeCategory;
+  extraTimeMinutes?: number;
   difficulty: Difficulty;
   note?: string;
   status: QuestStatus;
@@ -133,6 +134,7 @@ export interface UserProgress {
   dailyQuickBonusDates: string[];
   sessionHistory: SessionHistoryEntry[];
   subjectPriorities: SubjectPrioritySetting[];
+  soundEnabled: boolean;
 }
 
 export interface ShopItem {

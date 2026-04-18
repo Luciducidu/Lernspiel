@@ -1664,6 +1664,162 @@ button:disabled {
   padding: 14px;
 }
 
+.timer-panel--running {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(231, 173, 52, 0.14), transparent 30%),
+    linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
+.timer-display {
+  color: var(--primary-dark);
+  letter-spacing: 0;
+  text-shadow: 0 10px 30px rgba(39, 73, 52, 0.1);
+}
+
+.timer-end-alert {
+  align-items: center;
+  animation: rewardPop 420ms ease-out both;
+  background: linear-gradient(135deg, #fff3c8, #e8f6ed);
+  border: 1px solid rgba(231, 173, 52, 0.48);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin: 14px 0;
+  padding: 14px 16px;
+}
+
+.timer-end-alert strong {
+  color: #7a5200;
+}
+
+.timer-end-alert span {
+  color: #3f5347;
+  font-weight: 700;
+}
+
+.extra-time-picker {
+  align-items: center;
+  background: #f7faf6;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 16px 0;
+  padding: 14px;
+}
+
+.extra-time-picker div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.extra-time-picker span {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.extra-time-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.extra-time-chip {
+  background: #ffffff;
+  border: 1px solid #cbd8cf;
+  border-radius: 8px;
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-weight: 900;
+  padding: 8px 10px;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.extra-time-chip:hover {
+  background: #eaf5ee;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.sound-toggle {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 10px 14px;
+}
+
+.sound-toggle--on {
+  background: #e6f6ec;
+  color: #24633d;
+}
+
+.sound-toggle--off {
+  background: #edf1f3;
+  color: #5f6d73;
+}
+
+.completion-modal {
+  overflow: hidden;
+  position: relative;
+}
+
+.completion-modal::before {
+  background: radial-gradient(circle, rgba(231, 173, 52, 0.3), transparent 62%);
+  content: "";
+  height: 240px;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: -130px;
+  transform: translateX(-50%);
+  width: 360px;
+}
+
+.completion-celebration-mark {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.completion-celebration-mark span {
+  animation: levelGlow 900ms ease-out infinite alternate;
+  background: var(--reward);
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  width: 38px;
+}
+
+.completion-celebration-mark span:nth-child(2) {
+  animation-delay: 120ms;
+  background: var(--primary);
+}
+
+.completion-celebration-mark span:nth-child(3) {
+  animation-delay: 240ms;
+  background: #78b38e;
+}
+
+.reward-count-up {
+  display: grid;
+  gap: 4px;
+  font-size: 2rem;
+  animation: rewardPop 520ms ease-out both;
+}
+
+.completion-modal--level-up .reward-count-up,
+.completion-modal--level-up .level-up-callout {
+  animation: rewardPop 520ms ease-out both, levelGlow 1100ms ease-out 2;
+}
+
 @media (min-width: 1440px) {
   .sidebar-navigation {
     padding: 28px;
@@ -1814,6 +1970,17 @@ button:disabled {
 
   .custom-duration-control strong {
     text-align: left;
+  }
+
+  .extra-time-picker,
+  .timer-end-alert {
+    align-items: stretch;
+    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .extra-time-actions {
+    justify-content: flex-start;
   }
 
   .quest-card,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CompletionSummary, ReflectionData, ReflectionMood } from "../types";
 import { useModalA11y } from "../hooks/useModalA11y";
+import { RewardCountUp } from "./RewardCountUp";
 
 interface CompletionModalProps {
   summary: CompletionSummary | null;
@@ -43,6 +44,11 @@ export function CompletionModal({ summary, onSaveReflection, onClose }: Completi
         aria-modal="true"
         aria-labelledby="completion-title"
       >
+        <div className="completion-celebration-mark" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
         <span className="modal-rune completion-rune">{didLevelUp ? "Level-Up" : "Erfolg"}</span>
         <h2 id="completion-title">{didLevelUp ? `Level ${currentSummary.newLevel} erreicht` : "Quest abgeschlossen"}</h2>
         <p>
@@ -50,12 +56,8 @@ export function CompletionModal({ summary, onSaveReflection, onClose }: Completi
         </p>
 
         <div className="completion-rewards">
-          <strong>
-            <span>Coins</span>+{currentSummary.reward.coins + currentSummary.reward.bonusCoins}
-          </strong>
-          <strong>
-            <span>XP</span>+{currentSummary.reward.xp}
-          </strong>
+          <RewardCountUp label="Coins" value={currentSummary.reward.coins + currentSummary.reward.bonusCoins} />
+          <RewardCountUp label="XP" value={currentSummary.reward.xp} />
         </div>
 
         {didLevelUp ? (

@@ -3,10 +3,12 @@ import { priorityLabels } from "../utils/subjects";
 
 interface SettingsPanelProps {
   subjects: SubjectPrioritySetting[];
+  soundEnabled: boolean;
   onChangePriority: (id: SubjectPrioritySetting["id"], priority: SubjectPriority) => void;
+  onToggleSound: (enabled: boolean) => void;
 }
 
-export function SettingsPanel({ subjects, onChangePriority }: SettingsPanelProps) {
+export function SettingsPanel({ subjects, soundEnabled, onChangePriority, onToggleSound }: SettingsPanelProps) {
   return (
     <section className="settings-panel">
       <div className="section-heading">
@@ -18,6 +20,20 @@ export function SettingsPanel({ subjects, onChangePriority }: SettingsPanelProps
         ohne Quest-Inhalte zu verändern.
       </p>
       <div className="settings-list">
+        <label className="settings-row settings-row--sound">
+          <span>
+            <strong>Timer-Sound</strong>
+            <small>Spielt ein klares, kurzes Signal ab, wenn die Quest-Zeit endet.</small>
+          </span>
+          <button
+            className={`sound-toggle ${soundEnabled ? "sound-toggle--on" : "sound-toggle--off"}`}
+            type="button"
+            aria-pressed={soundEnabled}
+            onClick={() => onToggleSound(!soundEnabled)}
+          >
+            {soundEnabled ? "Sound an" : "Sound aus"}
+          </button>
+        </label>
         {subjects.map((subject) => (
           <label className="settings-row" key={subject.id}>
             <span>

@@ -296,6 +296,20 @@ function App() {
     setToast("Weiterlernen. Der Timer läuft sauber weiter.");
   }
 
+  function handleAddExtraTime(quest: Quest, minutes: number) {
+    if (quest.status !== "in_progress") {
+      setToast("Extra-Zeit kann nur im laufenden Fokusmodus hinzugefügt werden.");
+      return;
+    }
+
+    const safeMinutes = Math.max(5, Math.min(20, Math.round(minutes / 5) * 5));
+    updateQuest(quest.id, {
+      durationMinutes: quest.durationMinutes + safeMinutes,
+      extraTimeMinutes: (quest.extraTimeMinutes ?? 0) + safeMinutes,
+    });
+    setToast(`+${safeMinutes} Minuten Extra-Zeit hinzugefügt.`);
+  }
+
   function handleCompleteQuest(quest: Quest, focusMinutes: number) {
     if (quest.status !== "in_progress" || progress.sessionHistory.some((session) => session.questId === quest.id)) {
       setToast("Diese Quest wurde bereits beendet oder ist nicht im Fokusmodus.");
@@ -814,6 +828,8 @@ function App() {
               onCancel={handleCancelFocus}
               onPause={handlePauseFocus}
               onResume={handleResumeFocus}
+              onAddExtraTime={handleAddExtraTime}
+              soundEnabled={progress.soundEnabled}
             />
           </div>
         ) : null}
@@ -970,7 +986,15 @@ function App() {
 
         {activePage === "settings" ? (
           <div className="two-column-page">
-            <SettingsPanel subjects={progress.subjectPriorities} onChangePriority={handleChangeSubjectPriority} />
+            <SettingsPanel
+              subjects={progress.subjectPriorities}
+              soundEnabled={progress.soundEnabled}
+              onChangePriority={handleChangeSubjectPriority}
+              onToggleSound={(enabled) => {
+                setProgress((current) => ({ ...current, soundEnabled: enabled }));
+                setToast(enabled ? "Timer-Sound aktiviert." : "Timer-Sound deaktiviert.");
+              }}
+            />
             <SubjectPriorityCard subjects={progress.subjectPriorities} />
           </div>
         ) : null}

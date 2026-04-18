@@ -1,8 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Quest } from "../types";
 import { calculateQuestReward } from "../utils/gameRules";
+import { playTimerEndSound } from "../utils/sound";
+import { ExtraTimePicker } from "./ExtraTimePicker";
 import { ProgressBar } from "./ProgressBar";
 import { QuestRewardPreview } from "./QuestRewardPreview";
+import { TimerEndAlert } from "./TimerEndAlert";
 
 interface TimerPanelProps {
   quest: Quest | null;
@@ -10,6 +13,8 @@ interface TimerPanelProps {
   onCancel: () => void;
   onPause: (quest: Quest) => void;
   onResume: (quest: Quest) => void;
+  onAddExtraTime: (quest: Quest, minutes: number) => void;
+  soundEnabled: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -35,10 +40,11 @@ function getElapsedSeconds(quest: Quest | null): number {
   return Math.max(0, Math.floor((effectiveNow - startedAt - pausedMs) / 1000));
 }
 
-export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume }: TimerPanelProps) {
+export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume, onAddExtraTime, soundEnabled }: TimerPanelProps) {
   const initialSeconds = useMemo(() => (quest ? quest.durationMinutes * 60 : 0), [quest]);
   const [elapsedSeconds, setElapsedSeconds] = useState(() => getElapsedSeconds(quest));
   const [showPauseConfirm, setShowPauseConfirm] = useState(false);
+  const playedEndSignalRef = useRef<string | null>(null);
   const isPaused = Boolean(quest?.pausedAt);
 
   useEffect(() => {
@@ -57,6 +63,24 @@ export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume }: T
     return () => window.clearInterval(timerId);
   }, [isPaused, quest]);
 
+  useEffect(() => {
+    if (!quest || isPaused) {
+      return;
+    }
+
+    const secondsLeft = Math.max(0, initialSeconds - elapsedSeconds);
+    const timerEndKey = `${quest.id}:${quest.durationMinutes}`;
+    if (secondsLeft > 0 && playedEndSignalRef.current === timerEndKey) {
+      playedEndSignalRef.current = null;
+      return;
+    }
+
+    if (secondsLeft === 0 && playedEndSignalRef.current !== timerEndKey) {
+      playedEndSignalRef.current = timerEndKey;
+      playTimerEndSound(soundEnabled);
+    }
+  }, [elapsedSeconds, initialSeconds, isPaused, quest, soundEnabled]);
+
   if (!quest) {
     return (
       <section className="timer-panel timer-panel--empty">
@@ -70,6 +94,7 @@ export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume }: T
   const reward = calculateQuestReward(quest);
   const secondsLeft = Math.max(0, initialSeconds - elapsedSeconds);
   const focusMinutes = Math.max(1, Math.ceil(elapsedSeconds / 60));
+  const progressValue = Math.min(elapsedSeconds, initialSeconds);
 
   return (
     <section className={`timer-panel timer-panel--running ${isPaused ? "timer-panel--paused" : ""}`}>
@@ -81,8 +106,10 @@ export function TimerPanel({ quest, onComplete, onCancel, onPause, onResume }: T
       <div className="timer-display" aria-live="polite">
         {formatTime(secondsLeft)}
       </div>
-      <ProgressBar value={elapsedSeconds} max={Math.max(1, initialSeconds)} label="Session-Fortschritt" />
+      <ProgressBar value={progressValue} max={Math.max(1, initialSeconds)} label="Session-Fortschritt" />
+      <TimerEndAlert visible={secondsLeft === 0 && !isPaused} />
       <QuestRewardPreview reward={reward} />
+      <ExtraTimePicker extraTimeMinutes={quest.extraTimeMinutes ?? 0} onAddExtraTime={(minutes) => onAddExtraTime(quest, minutes)} />
       <p>
         {isPaused
           ? "Die Session ist pausiert. Beim Fortsetzen läuft die Lernzeit exakt weiter."
