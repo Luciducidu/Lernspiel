@@ -1875,6 +1875,12 @@ button:disabled {
   text-align: left;
 }
 
+.chest-preview-item--uncommon,
+.chest-result--uncommon {
+  border-color: #9ab7cf;
+  box-shadow: 0 10px 24px rgba(63, 101, 130, 0.12);
+}
+
 .chest-preview-item--rare,
 .chest-result--rare {
   border-color: #7db29b;
@@ -1961,6 +1967,11 @@ button:disabled {
 
 .chest-reel__item--rare {
   border-color: #7db29b;
+}
+
+.chest-reel__item--uncommon {
+  border-color: #9ab7cf;
+  background: #f2f7fb;
 }
 
 .chest-reel__item--epic {

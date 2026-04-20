@@ -11,17 +11,24 @@ export const rewardCategoryLabels: Record<RewardCategory, string> = {
 
 export const rewardRarityLabels: Record<RewardRarity, string> = {
   common: "Common",
+  uncommon: "Uncommon",
   rare: "Rare",
   epic: "Epic",
 };
 
-export function getRewardIcon(reward: Pick<ChestReward, "category" | "coins" | "gems">): string {
-  if (reward.category === "coins") return (reward.coins ?? 0) >= 250 ? "🪙" : "¢";
-  if (reward.category === "gems") return "◆";
-  if (reward.category === "activity") return "▣";
-  if (reward.category === "streak") return "♢";
-  if (reward.category === "special") return "★";
-  return "✦";
+export function getRewardIcon(reward: Pick<ChestReward, "category" | "coins" | "gems" | "iconKey">): string {
+  if (reward.iconKey === "coins-large") return "C+";
+  if (reward.iconKey === "coins") return "C";
+  if (reward.iconKey === "gems") return "G";
+  if (reward.iconKey === "ticket") return "T";
+  if (reward.iconKey === "shield") return "S";
+  if (reward.iconKey === "star") return "*";
+  if (reward.category === "coins") return (reward.coins ?? 0) >= 250 ? "C+" : "C";
+  if (reward.category === "gems") return "G";
+  if (reward.category === "activity") return "T";
+  if (reward.category === "streak") return "S";
+  if (reward.category === "special") return "*";
+  return "+";
 }
 
 export function getRewardValueText(reward: ChestReward): string {
@@ -31,5 +38,5 @@ export function getRewardValueText(reward: ChestReward): string {
   if (reward.discountTokens) return `+${reward.discountTokens} Rabatt-Token`;
   if (reward.streakProtectionTokens) return `+${reward.streakProtectionTokens} Streak-Schutz`;
   if (reward.specialVouchers) return `+${reward.specialVouchers} Spezialgutschein`;
-  return reward.title;
+  return reward.displayValue || reward.title;
 }

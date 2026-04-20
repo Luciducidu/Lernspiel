@@ -24,11 +24,14 @@ export function ChestContentsModal({ tier, rewards, onClose }: ChestContentsModa
 
         <div className="chest-preview-list">
           {rewards.map((reward) => (
-            <article className={`chest-preview-item chest-preview-item--${reward.rarity}`} key={`${reward.tier}-${reward.title}`}>
+            <article className={`chest-preview-item chest-preview-item--${reward.rarity}`} key={reward.id}>
               <span className="reward-icon" aria-hidden="true">{getRewardIcon(reward)}</span>
               <div>
                 <strong>{reward.title}</strong>
-                <small>{rewardCategoryLabels[reward.category]} · {rewardRarityLabels[reward.rarity]} · {getRewardValueText(reward)}</small>
+                <small>
+                  {rewardCategoryLabels[reward.category]} · {rewardRarityLabels[reward.rarity]} · {getRewardValueText(reward)} · Wert ca.{" "}
+                  {reward.internalCoinValue} Coins
+                </small>
               </div>
             </article>
           ))}

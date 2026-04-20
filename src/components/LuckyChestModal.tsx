@@ -26,7 +26,7 @@ export function LuckyChestModal({ reward, rewardPool, onClose }: LuckyChestModal
         <div className="chest-reel" aria-hidden="true">
           <div className="chest-reel__track">
             {reelItems.map((item, index) => (
-              <span className={`chest-reel__item chest-reel__item--${item.rarity}`} key={`${item.title}-${index}`}>
+              <span className={`chest-reel__item chest-reel__item--${item.rarity}`} key={`${item.id}-${index}`}>
                 <span>{getRewardIcon(item)}</span>
                 <small>{item.title}</small>
               </span>
@@ -41,7 +41,7 @@ export function LuckyChestModal({ reward, rewardPool, onClose }: LuckyChestModal
           </span>
           <div>
             <span className="reward-rarity">
-              {rewardRarityLabels[reward.rarity]} · {rewardCategoryLabels[reward.category]}
+              {rewardRarityLabels[reward.rarity]} · {rewardCategoryLabels[reward.category]} · Wert ca. {reward.internalCoinValue} Coins
             </span>
             <h3>{reward.title}</h3>
             <p>{reward.description}</p>
