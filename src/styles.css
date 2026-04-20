@@ -2231,3 +2231,336 @@ button:disabled {
     width: 100%;
   }
 }
+
+@media (min-width: 981px) {
+  .nav-label--mobile {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-frame {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .sidebar-navigation {
+    inset: auto 8px calc(8px + env(safe-area-inset-bottom));
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-width: 680px;
+    margin-inline: auto;
+    padding: 7px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(18px);
+  }
+
+  .nav-list {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 1px;
+    scrollbar-width: none;
+  }
+
+  .nav-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    flex: 1 0 78px;
+    min-height: 52px;
+    place-items: center;
+    padding: 8px 9px;
+    border-radius: 8px;
+    font-size: 0.83rem;
+    font-weight: 900;
+    text-align: center;
+  }
+
+  .nav-label--desktop,
+  .nav-item small {
+    display: none;
+  }
+
+  .nav-label--mobile {
+    display: inline;
+  }
+
+  .page-shell {
+    width: 100%;
+    padding: 16px 14px calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .topbar h1 {
+    font-size: 1.7rem;
+  }
+
+  .topbar-currencies {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .topbar-currencies span {
+    justify-content: center;
+    min-width: 0;
+    padding-inline: 7px;
+  }
+
+  .status-line {
+    margin-bottom: 14px;
+    font-size: 0.92rem;
+  }
+
+  .page-stack {
+    gap: 16px;
+  }
+
+  .content-card,
+  .panel,
+  .active-quest-card,
+  .subject-card,
+  .level-progress-card,
+  .unlock-preview-card,
+  .timer-panel,
+  .inventory,
+  .settings-panel,
+  .stats-panel,
+  .history-panel,
+  .gem-panel,
+  .compact-card {
+    padding: 16px;
+  }
+
+  .dashboard-hero {
+    gap: 18px;
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .dashboard-hero h1 {
+    font-size: 2rem;
+  }
+
+  .dashboard-hero p {
+    font-size: 0.98rem;
+  }
+
+  .hero-actions,
+  .timer-actions,
+  .modal-actions,
+  .history-filters {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    flex-wrap: nowrap;
+    margin-inline: -14px;
+    overflow-x: auto;
+    padding: 0 14px 6px;
+    scrollbar-width: none;
+  }
+
+  .tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+
+  .quest-filter-bar {
+    gap: 10px;
+  }
+
+  .quest-card {
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .quest-card__main {
+    width: 100%;
+    min-height: 48px;
+    padding: 0;
+  }
+
+  .quest-card__content h3,
+  .daily-quick-card h3,
+  .shop-card h3 {
+    overflow-wrap: anywhere;
+  }
+
+  .quest-card__side {
+    justify-items: stretch;
+    width: 100%;
+  }
+
+  .quest-card__action {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .duration-chip-row,
+  .quest-meta-badges,
+  .chest-category-row {
+    gap: 7px;
+  }
+
+  .duration-chip,
+  .extra-time-chip,
+  .tab {
+    min-height: 40px;
+  }
+
+  .daily-quick-card,
+  .daily-goal,
+  .shop-card,
+  .streak-reward-card {
+    padding: 14px;
+  }
+
+  .answer-button {
+    min-height: 54px;
+    padding: 12px;
+  }
+
+  .shop-card__footer,
+  .shop-card__actions {
+    align-items: stretch;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .focus-page {
+    align-items: stretch;
+  }
+
+  .timer-panel {
+    max-width: none;
+    width: 100%;
+  }
+
+  .timer-display {
+    margin: 16px 0 10px;
+    padding: 20px 14px;
+    font-size: 3.4rem;
+    text-align: center;
+  }
+
+  .extra-time-picker {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .extra-time-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 10px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .quest-accept__brief,
+  .completion-rewards,
+  .chest-reward-grid,
+  .chest-result {
+    grid-template-columns: 1fr;
+  }
+
+  .chest-reel__item {
+    flex-basis: 112px;
+  }
+
+  .activity-calendar {
+    gap: 5px;
+  }
+
+  .calendar-day {
+    border-radius: 7px;
+    font-size: 0.82rem;
+  }
+
+  .calendar-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .calendar-detail {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .page-shell {
+    padding-inline: 10px;
+  }
+
+  .topbar-currencies {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-hero h1 {
+    font-size: 1.65rem;
+  }
+
+  .section-heading h2,
+  .timer-panel h2,
+  .modal h2 {
+    font-size: 1.25rem;
+  }
+
+  .timer-display {
+    font-size: 2.8rem;
+  }
+
+  .extra-time-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nav-item {
+    flex-basis: 72px;
+    font-size: 0.78rem;
+  }
+
+  .activity-calendar {
+    gap: 4px;
+  }
+
+  .calendar-weekday {
+    font-size: 0.7rem;
+  }
+
+  .reward-icon--large {
+    height: 58px;
+    width: 58px;
+  }
+}

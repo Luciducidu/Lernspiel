@@ -1,12 +1,12 @@
 import type { AppPage } from "../types";
 
-const navItems: Array<{ page: AppPage; label: string; hint: string }> = [
-  { page: "dashboard", label: "Dashboard", hint: "Heute" },
-  { page: "quests", label: "Quests", hint: "Planen" },
-  { page: "focus", label: "Fokusmodus", hint: "Lernen" },
-  { page: "shop", label: "Shop", hint: "Belohnungen" },
-  { page: "progress", label: "Fortschritt", hint: "Auswertung" },
-  { page: "settings", label: "Einstellungen", hint: "Fächer" },
+const navItems: Array<{ page: AppPage; label: string; mobileLabel: string; hint: string }> = [
+  { page: "dashboard", label: "Dashboard", mobileLabel: "Start", hint: "Heute" },
+  { page: "quests", label: "Quests", mobileLabel: "Quests", hint: "Planen" },
+  { page: "focus", label: "Fokusmodus", mobileLabel: "Fokus", hint: "Lernen" },
+  { page: "shop", label: "Shop", mobileLabel: "Shop", hint: "Belohnungen" },
+  { page: "progress", label: "Fortschritt", mobileLabel: "Rewards", hint: "Auswertung" },
+  { page: "settings", label: "Einstellungen", mobileLabel: "Mehr", hint: "Faecher" },
 ];
 
 interface SidebarNavigationProps {
@@ -29,7 +29,8 @@ export function SidebarNavigation({ activePage, onNavigate }: SidebarNavigationP
             type="button"
             onClick={() => onNavigate(item.page)}
           >
-            <span>{item.label}</span>
+            <span className="nav-label nav-label--desktop">{item.label}</span>
+            <span className="nav-label nav-label--mobile">{item.mobileLabel}</span>
             <small>{item.hint}</small>
           </button>
         ))}
