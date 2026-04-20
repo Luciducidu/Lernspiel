@@ -1689,6 +1689,57 @@ button:disabled {
   padding: 12px 14px;
 }
 
+.account-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.account-form,
+.account-state-card {
+  display: grid;
+  gap: 12px;
+}
+
+.account-form label {
+  color: #405247;
+  display: grid;
+  font-weight: 800;
+  gap: 8px;
+}
+
+.account-form input {
+  border: 1px solid #cbd8cf;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 10px 12px;
+}
+
+.account-form small,
+.account-state-card small {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.sync-notice {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+}
+
+.sync-notice--offline {
+  background: #fff8e6;
+  border-color: #ebd08a;
+  color: #6d510e;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .timer-panel--running {
   background:
     radial-gradient(circle at 18% 0%, rgba(231, 173, 52, 0.14), transparent 30%),
@@ -2514,6 +2565,11 @@ button:disabled {
 
   .calendar-detail {
     align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .account-actions {
     display: grid;
     grid-template-columns: 1fr;
   }

@@ -1,12 +1,15 @@
 import { initialProgress, initialQuests } from "../data/seed";
-import type { Quest, QuestStatus, QuestType, Subject, SubjectId, SubjectPriority, UserProgress } from "../types";
+import type { AccountState, Quest, QuestStatus, QuestType, Subject, SubjectId, SubjectPriority, UserProgress } from "../types";
 import { normalizeQuestDuration } from "./durations";
 import { getLevelInfo, todayKey } from "./gameRules";
 
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
+const ACCOUNT_KEY = "lernquest.account";
 const APP_DATA_VERSION = 6;
+
+export const appDataVersion = APP_DATA_VERSION;
 
 interface StorageMeta {
   appDataVersion: number;
@@ -184,4 +187,20 @@ export function saveProgress(progress: UserProgress): void {
     xp: clampNumber(progress.xp, 0),
     level: getLevelInfo(progress.xp).level,
   });
+}
+
+export function loadAccount(): AccountState {
+  const stored = readJson<Partial<AccountState>>(ACCOUNT_KEY, {});
+  return {
+    mode: stored.mode === "account" ? "account" : "local",
+    username: typeof stored.username === "string" ? stored.username : undefined,
+    passphraseHash: typeof stored.passphraseHash === "string" ? stored.passphraseHash : undefined,
+    lastSyncedAt: typeof stored.lastSyncedAt === "string" ? stored.lastSyncedAt : undefined,
+    syncStatus: stored.syncStatus ?? "idle",
+    syncMessage: typeof stored.syncMessage === "string" ? stored.syncMessage : undefined,
+  };
+}
+
+export function saveAccount(account: AccountState): void {
+  writeJson(ACCOUNT_KEY, account);
 }

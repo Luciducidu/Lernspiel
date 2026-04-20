@@ -12,6 +12,28 @@ export type RewardCurrency = "coins" | "gems";
 
 export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "settings";
 
+export type AccountMode = "local" | "account";
+
+export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
+
+export interface AccountState {
+  mode: AccountMode;
+  username?: string;
+  passphraseHash?: string;
+  lastSyncedAt?: string;
+  syncStatus: SyncStatus;
+  syncMessage?: string;
+}
+
+export interface SyncBundle {
+  appDataVersion: number;
+  username: string;
+  passphraseHash: string;
+  updatedAt: string;
+  quests: Quest[];
+  progress: UserProgress;
+}
+
 export type SubjectId = "pb" | "mathe" | "deutsch" | "physik";
 
 export type Subject = "PB" | "Deutsch" | "Mathe";

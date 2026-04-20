@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { ActivityCalendar } from "./components/ActivityCalendar";
+import { AccountPanel } from "./components/AccountPanel";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
@@ -66,7 +67,7 @@ import {
   spendGems,
   todayKey,
 } from "./utils/gameRules";
-import { loadProgress, loadQuests, saveProgress, saveQuests } from "./utils/storage";
+import { loadAccount, loadProgress, loadQuests, saveAccount, saveProgress, saveQuests } from "./utils/storage";
 import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
 import {
   customQuestDurationOptions,
@@ -75,6 +76,7 @@ import {
   recommendedDurationForQuest,
 } from "./utils/durations";
 import { buildStreakRewards, claimStreakReward, getNextStreakReward } from "./utils/streakRewards";
+import { createSyncBundle, fetchRemoteBundle, hashSyncSecret, mergeSyncData, normalizeUsername, saveRemoteBundle } from "./utils/sync";
 
 const emptyForm = {
   title: "",
@@ -91,6 +93,7 @@ const emptyForm = {
 function App() {
   const [quests, setQuests] = usePersistentState<Quest[]>(loadQuests, saveQuests);
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
+  const [account, setAccount] = usePersistentState(loadAccount, saveAccount);
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
   const [questTab, setQuestTab] = useState<"daily" | "open" | "accepted" | "completed">("daily");
   const [progressTab, setProgressTab] = useState<
@@ -525,6 +528,98 @@ function App() {
       subjectPriorities: current.subjectPriorities.map((subject) => (subject.id === id ? { ...subject, priority } : subject)),
     }));
     setToast("Fach-Priorisierung gespeichert.");
+  }
+
+  async function handleLogin(usernameInput: string, syncKey: string) {
+    const username = normalizeUsername(usernameInput);
+    if (!username || syncKey.trim().length < 6) {
+      setAccount((current) => ({
+        ...current,
+        syncStatus: "error",
+        syncMessage: "Benutzername und ein Sync-Schlüssel mit mindestens 6 Zeichen werden benötigt.",
+      }));
+      return;
+    }
+
+    setAccount((current) => ({ ...current, syncStatus: "syncing", syncMessage: "Konto wird geprüft..." }));
+
+    try {
+      const passphraseHash = await hashSyncSecret(username, syncKey);
+      const remote = await fetchRemoteBundle(username);
+      const baseAccount = { mode: "account" as const, username, passphraseHash, syncStatus: "syncing" as const };
+
+      if (remote && remote.passphraseHash !== passphraseHash) {
+        setAccount((current) => ({
+          ...current,
+          syncStatus: "error",
+          syncMessage: "Sync-Schlüssel passt nicht zu diesem Benutzernamen.",
+        }));
+        return;
+      }
+
+      const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
+      setQuests(merged.quests);
+      setProgress(merged.progress);
+      await saveRemoteBundle(createSyncBundle(baseAccount, merged.quests, merged.progress));
+      setAccount({
+        mode: "account",
+        username,
+        passphraseHash,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: "success",
+        syncMessage: remote ? "Lokale Daten wurden mit Kontodaten zusammengeführt." : "Konto erstellt und lokale Daten hochgeladen.",
+      });
+      setToast("Konto verbunden. Fortschritt ist synchronisiert.");
+    } catch (error) {
+      setAccount((current) => ({
+        ...current,
+        mode: "local",
+        syncStatus: "error",
+        syncMessage: error instanceof Error ? error.message : "Synchronisation fehlgeschlagen.",
+      }));
+    }
+  }
+
+  async function handleManualSync() {
+    if (account.mode !== "account" || !account.username || !account.passphraseHash) {
+      setToast("Du bist aktuell im lokalen Modus.");
+      return;
+    }
+
+    setAccount((current) => ({ ...current, syncStatus: "syncing", syncMessage: "Synchronisation läuft..." }));
+
+    try {
+      const remote = await fetchRemoteBundle(account.username);
+      if (remote && remote.passphraseHash !== account.passphraseHash) {
+        throw new Error("Sync-Schlüssel passt nicht mehr zum Konto.");
+      }
+      const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
+      setQuests(merged.quests);
+      setProgress(merged.progress);
+      await saveRemoteBundle(createSyncBundle(account, merged.quests, merged.progress));
+      setAccount((current) => ({
+        ...current,
+        lastSyncedAt: new Date().toISOString(),
+        syncStatus: "success",
+        syncMessage: "Daten wurden synchronisiert.",
+      }));
+      setToast("Daten synchronisiert.");
+    } catch (error) {
+      setAccount((current) => ({
+        ...current,
+        syncStatus: "error",
+        syncMessage: error instanceof Error ? error.message : "Synchronisation fehlgeschlagen.",
+      }));
+    }
+  }
+
+  function handleLogout() {
+    setAccount({
+      mode: "local",
+      syncStatus: "idle",
+      syncMessage: "Abgemeldet. Lokale Daten bleiben auf diesem Gerät erhalten.",
+    });
+    setToast("Abgemeldet. Du nutzt die App lokal weiter.");
   }
 
   function renderQuestList(list: Quest[]) {
@@ -1043,7 +1138,11 @@ function App() {
         ) : null}
 
         {activePage === "settings" ? (
-          <div className="two-column-page">
+          <div className="page-stack">
+            <div className="two-column-page">
+              <AccountPanel account={account} onLogin={handleLogin} onLogout={handleLogout} onSync={handleManualSync} />
+              <SubjectPriorityCard subjects={progress.subjectPriorities} />
+            </div>
             <SettingsPanel
               subjects={progress.subjectPriorities}
               soundEnabled={progress.soundEnabled}
@@ -1053,7 +1152,6 @@ function App() {
                 setToast(enabled ? "Timer-Sound aktiviert." : "Timer-Sound deaktiviert.");
               }}
             />
-            <SubjectPriorityCard subjects={progress.subjectPriorities} />
           </div>
         ) : null}
       </main>
