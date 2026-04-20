@@ -41,9 +41,9 @@ export const timeRewardConfig = {
 
 export const dailyQuickQuestConfig = {
   questsPerDay: 5,
-  correctCoins: 10,
-  correctXp: 5,
-  allAnsweredBonusCoins: 20,
+  correctCoins: 0,
+  correctXp: 0,
+  allCorrectBonusCoins: 30,
 };
 
 export const reflectionBonus = {
@@ -682,10 +682,10 @@ export const dailyGoalDefinitions: Array<Omit<DailyGoal, "current" | "claimed">>
   },
   {
     id: "daily-quick-all",
-    title: "Alle Daily Quick Questions",
-    description: "Kurze Abi-Wiederholung komplett erledigen.",
+    title: "5 Daily-Fragen richtig",
+    description: "Beantworte alle 5 Daily-Fragen richtig und erhalte 30 Coins.",
     target: 5,
-    reward: { coins: 25, xp: 10 },
+    reward: { coins: 30 },
   },
   {
     id: "daily-focus-subject",

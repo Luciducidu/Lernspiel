@@ -232,13 +232,14 @@ function getBestConsecutiveRun(dateKeys: string[]): number {
 export function buildDailyGoals(progress: UserProgress): DailyGoal[] {
   const date = todayKey();
   const progressForDay = progress.dailyGoalProgress[date]?.claimedGoalIds ?? [];
+  const migratedQuickBonusClaimed = progress.dailyQuickBonusDates.includes(date);
   const completedToday = progress.sessionHistory.filter((session) => session.dateKey === date).length;
   const sessionsToday = progress.sessionHistory.filter((session) => session.dateKey === date);
   const focusToday = progress.sessionHistory
     .filter((session) => session.dateKey === date)
     .reduce((sum, session) => sum + session.durationMinutes, 0);
   const startedToday = progress.startedQuestDaysHistory.includes(date) ? 1 : 0;
-  const quickAnsweredToday = Object.values(progress.dailyQuickQuestStates[date] ?? {}).filter((state) => state.answeredAt).length;
+  const quickCorrectToday = Object.values(progress.dailyQuickQuestStates[date] ?? {}).filter((state) => state.status === "correct").length;
   const focusSubjectToday = sessionsToday.some((session) => ["Deutsch", "PB", "Mathe"].includes(session.category)) ? 1 : 0;
 
   return dailyGoalDefinitions.map((goal) => ({
@@ -251,10 +252,10 @@ export function buildDailyGoals(progress: UserProgress): DailyGoal[] {
           : goal.id === "daily-focus-30"
             ? focusToday
             : goal.id === "daily-quick-all"
-              ? quickAnsweredToday
+              ? quickCorrectToday
               : focusSubjectToday,
-    claimed: progressForDay.includes(goal.id),
-    status: progressForDay.includes(goal.id)
+    claimed: progressForDay.includes(goal.id) || (goal.id === "daily-quick-all" && migratedQuickBonusClaimed),
+    status: progressForDay.includes(goal.id) || (goal.id === "daily-quick-all" && migratedQuickBonusClaimed)
       ? "claimed"
       : (goal.id === "daily-complete-1" || goal.id === "daily-complete-2"
             ? completedToday
@@ -263,7 +264,7 @@ export function buildDailyGoals(progress: UserProgress): DailyGoal[] {
               : goal.id === "daily-focus-30"
                 ? focusToday
                 : goal.id === "daily-quick-all"
-                  ? quickAnsweredToday
+                  ? quickCorrectToday
                   : focusSubjectToday) >= goal.target
         ? "available"
         : "locked",
@@ -323,40 +324,57 @@ export function buildWeeklyGoals(progress: UserProgress): DailyGoal[] {
 }
 
 export function applyAvailableGoalRewards(progress: UserProgress): { progress: UserProgress; messages: string[] } {
-  let next = progress;
-  const messages: string[] = [];
+  return { progress, messages: [] };
+}
+
+export function claimGoalReward(
+  progress: UserProgress,
+  scope: "daily" | "weekly",
+  goalId: string,
+): { progress: UserProgress; ok: boolean; message: string; goal?: DailyGoal } {
   const date = todayKey();
   const week = getWeekKey();
-  const dailyClaimed = new Set(next.dailyGoalProgress[date]?.claimedGoalIds ?? []);
+  const goals = scope === "daily" ? buildDailyGoals(progress) : buildWeeklyGoals(progress);
+  const goal = goals.find((item) => item.id === goalId);
 
-  for (const goal of buildDailyGoals(next)) {
-    if (goal.current >= goal.target && !dailyClaimed.has(goal.id)) {
-      dailyClaimed.add(goal.id);
-      next = applyGoalReward(next, goal.reward);
-      messages.push(`${goal.title}: Zielbelohnung erhalten.`);
-    }
+  if (!goal) {
+    return { progress, ok: false, message: "Diese Belohnung existiert nicht." };
   }
 
-  next = {
-    ...next,
-    dailyGoalProgress: { ...next.dailyGoalProgress, [date]: { dateKey: date, claimedGoalIds: [...dailyClaimed] } },
-  };
-
-  const weeklyClaimed = new Set(next.weeklyGoalProgress[week]?.claimedGoalIds ?? []);
-  for (const goal of buildWeeklyGoals(next)) {
-    if (goal.current >= goal.target && !weeklyClaimed.has(goal.id)) {
-      weeklyClaimed.add(goal.id);
-      next = applyGoalReward(next, goal.reward);
-      messages.push(`${goal.title}: Wochenbelohnung erhalten.`);
-    }
+  if (goal.current < goal.target) {
+    return { progress, ok: false, message: "Diese Belohnung ist noch nicht erfüllt.", goal };
   }
 
+  if (goal.claimed) {
+    return { progress, ok: false, message: "Diese Belohnung wurde bereits abgeholt.", goal };
+  }
+
+  const rewarded = applyGoalReward(progress, goal.reward);
+
+  if (scope === "daily") {
+    const claimed = new Set(progress.dailyGoalProgress[date]?.claimedGoalIds ?? []);
+    claimed.add(goal.id);
+    return {
+      ok: true,
+      goal,
+      message: `${goal.title}: Belohnung abgeholt.`,
+      progress: {
+        ...rewarded,
+        dailyGoalProgress: { ...rewarded.dailyGoalProgress, [date]: { dateKey: date, claimedGoalIds: [...claimed] } },
+      },
+    };
+  }
+
+  const claimed = new Set(progress.weeklyGoalProgress[week]?.claimedGoalIds ?? []);
+  claimed.add(goal.id);
   return {
+    ok: true,
+    goal,
+    message: `${goal.title}: Wochenbelohnung abgeholt.`,
     progress: {
-      ...next,
-      weeklyGoalProgress: { ...next.weeklyGoalProgress, [week]: { weekKey: week, claimedGoalIds: [...weeklyClaimed] } },
+      ...rewarded,
+      weeklyGoalProgress: { ...rewarded.weeklyGoalProgress, [week]: { weekKey: week, claimedGoalIds: [...claimed] } },
     },
-    messages,
   };
 }
 

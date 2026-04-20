@@ -1,8 +1,9 @@
 import type { DailyGoal } from "../types";
 import { ProgressBar } from "./ProgressBar";
 
-export function DailyGoalCard({ goal }: { goal: DailyGoal }) {
+export function DailyGoalCard({ goal, onClaim }: { goal: DailyGoal; onClaim?: (goalId: string) => void }) {
   const isDone = goal.current >= goal.target;
+  const canClaim = isDone && !goal.claimed;
 
   return (
     <article className={`daily-goal ${isDone ? "daily-goal--done" : ""} daily-goal--${goal.status ?? "locked"}`}>
@@ -21,6 +22,11 @@ export function DailyGoalCard({ goal }: { goal: DailyGoal }) {
         ) : null}
       </div>
       <ProgressBar value={Math.min(goal.current, goal.target)} max={goal.target} label={isDone ? "Erledigt" : "Fortschritt"} />
+      {canClaim && onClaim ? (
+        <button className="button button--primary" type="button" onClick={() => onClaim(goal.id)}>
+          Belohnung abholen
+        </button>
+      ) : null}
       {goal.claimed ? <span className="claimed-badge">Belohnung erhalten</span> : null}
     </article>
   );

@@ -58,12 +58,14 @@ export function DailyQuickQuestCard({ question, state, compact = false, onAnswer
 
       {answered ? (
         <div className={`daily-quick-feedback ${isCorrect ? "daily-quick-feedback--correct" : "daily-quick-feedback--incorrect"}`}>
-          <strong>{isCorrect ? `+${dailyQuickQuestConfig.correctCoins} Coins, +${dailyQuickQuestConfig.correctXp} XP` : "0 Coins"}</strong>
+          <strong>{isCorrect ? "Richtig beantwortet" : "0 Coins"}</strong>
           {!isCorrect && correctAnswer ? <span>Richtig wäre: {correctAnswer}</span> : null}
           <p>{question.explanation}</p>
         </div>
       ) : (
-        <p className="daily-quick-hint">Kurz beantworten. Genau eine Antwort ist richtig.</p>
+        <p className="daily-quick-hint">
+          Kurz beantworten. Alle {dailyQuickQuestConfig.questsPerDay} richtig ergeben {dailyQuickQuestConfig.allCorrectBonusCoins} Coins.
+        </p>
       )}
     </article>
   );

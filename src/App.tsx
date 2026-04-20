@@ -5,6 +5,7 @@ import { DashboardCard } from "./components/DashboardCard";
 import { DashboardHero } from "./components/DashboardHero";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
 import { ChestContentsModal } from "./components/ChestContentsModal";
+import { ClaimableRewardsPanel } from "./components/ClaimableRewardsPanel";
 import { CompletionModal } from "./components/CompletionModal";
 import { DailyQuickQuestCard } from "./components/DailyQuickQuestCard";
 import { DailyGoalCard } from "./components/DailyGoalCard";
@@ -50,6 +51,7 @@ import { answerDailyQuickQuest, getDailyQuickQuestionsForDate, getDailyQuickStat
 import {
   applyChestReward,
   applyAvailableGoalRewards,
+  claimGoalReward,
   applyQuestStart,
   applyQuestCompletion,
   calculateQuestReward,
@@ -92,7 +94,7 @@ function App() {
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
   const [questTab, setQuestTab] = useState<"daily" | "open" | "accepted" | "completed">("daily");
   const [progressTab, setProgressTab] = useState<
-    "overview" | "daily" | "weekly" | "streaks" | "calendar" | "stats" | "history" | "unlocks"
+    "overview" | "claims" | "daily" | "weekly" | "streaks" | "calendar" | "stats" | "history" | "unlocks"
   >("overview");
   const [subjectFilter, setSubjectFilter] = useState<"all" | Subject>("all");
   const [questTypeFilter, setQuestTypeFilter] = useState<"all" | QuestType>("all");
@@ -136,6 +138,9 @@ function App() {
   );
   const dailyQuickAnsweredCount = dailyQuickQuestionsForToday.filter((question) =>
     Boolean(getDailyQuickState(progress, question.id, todaysDateKey)?.answeredAt),
+  ).length;
+  const dailyQuickCorrectCount = dailyQuickQuestionsForToday.filter(
+    (question) => getDailyQuickState(progress, question.id, todaysDateKey)?.status === "correct",
   ).length;
   const topicOptions = subjectTopics[questDraft.subject];
   const draftDurationOptions = customQuestDurationOptions(questDraft.durationMinutes);
@@ -418,6 +423,27 @@ function App() {
     setToast(result.message);
   }
 
+  function handleClaimGoal(scope: "daily" | "weekly", goalId: string) {
+    const result = claimGoalReward(progress, scope, goalId);
+    if (!result.ok || !result.goal) {
+      setToast(result.message);
+      return;
+    }
+
+    setProgress(result.progress);
+    showCelebration({
+      tone: "reward",
+      title: result.goal.title,
+      message: scope === "daily" ? "Tagesquest-Belohnung abgeholt." : "Wochenquest-Belohnung abgeholt.",
+      rewards: [
+        result.goal.reward?.coins ? `+${result.goal.reward.coins} Coins` : "",
+        result.goal.reward?.xp ? `+${result.goal.reward.xp} XP` : "",
+        result.goal.reward?.gems ? `+${result.goal.reward.gems} Gems` : "",
+      ].filter(Boolean),
+    });
+    setToast(result.message);
+  }
+
   function handleAnswerDailyQuick(question: MultipleChoiceQuestion, optionId: string) {
     const oldLevel = getLevelInfo(progress.xp).level;
     const result = answerDailyQuickQuest(progress, question, optionId, dailyQuickQuestionIds, todaysDateKey);
@@ -428,14 +454,14 @@ function App() {
         tone: "level",
         title: `Level ${newLevel} erreicht`,
         message: "Eine kurze Daily Quick Quest hat dich ein Level weitergebracht.",
-        rewards: [`+${newLevel - oldLevel} Level`, "+10 Coins", "+5 XP"],
+        rewards: [`+${newLevel - oldLevel} Level`],
       });
     } else if (result.correct) {
       showCelebration({
         tone: "success",
         title: "Daily Quick richtig",
         message: question.explanation,
-        rewards: ["+10 Coins", "+5 XP"],
+        rewards: ["Fortschritt für 5 richtige Daily-Fragen"],
       });
     }
     setToast(result.message);
@@ -586,9 +612,13 @@ function App() {
                   <h2>Kurze Abi-Wiederholung</h2>
                 </div>
                 <span className="daily-quick-counter">
-                  {dailyQuickAnsweredCount}/{dailyQuickQuestionsForToday.length} heute
+                  {dailyQuickCorrectCount}/{dailyQuickQuestionsForToday.length} richtig
                 </span>
               </div>
+              <p className="daily-quick-reward-note">
+                Beantworte alle 5 Daily-Fragen richtig und hole dir 30 Coins im Belohnungs-Tab ab. Noch offen:{" "}
+                {Math.max(0, dailyQuickQuestionsForToday.length - dailyQuickAnsweredCount)}.
+              </p>
               <div className="daily-quick-grid daily-quick-grid--compact">
                 {renderDailyQuickList(dailyQuickQuestionsForToday.slice(0, 3), true)}
               </div>
@@ -906,6 +936,7 @@ function App() {
           <div className="page-stack">
             <div className="tabs" role="tablist" aria-label="Fortschrittsbereiche">
               <button className={progressTab === "overview" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("overview")}>Übersicht</button>
+              <button className={progressTab === "claims" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("claims")}>Belohnungen</button>
               <button className={progressTab === "daily" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("daily")}>Tagesquests</button>
               <button className={progressTab === "weekly" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("weekly")}>Wochenquests</button>
               <button className={progressTab === "streaks" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("streaks")}>Streaks</button>
@@ -949,7 +980,7 @@ function App() {
                   </div>
                   <span className="reset-hint">Reset: täglich 00:00</span>
                 </div>
-                <div className="daily-goal-grid">{dailyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+                <div className="daily-goal-grid">{dailyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} onClaim={(goalId) => handleClaimGoal("daily", goalId)} />)}</div>
               </section>
             ) : null}
 
@@ -962,8 +993,21 @@ function App() {
                   </div>
                   <span className="reset-hint">Reset: Montag 00:00</span>
                 </div>
-                <div className="daily-goal-grid weekly-goal-grid">{weeklyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} />)}</div>
+                <div className="daily-goal-grid weekly-goal-grid">{weeklyGoals.map((goal) => <DailyGoalCard key={goal.id} goal={goal} onClaim={(goalId) => handleClaimGoal("weekly", goalId)} />)}</div>
               </section>
+            ) : null}
+
+            {progressTab === "claims" ? (
+              <ClaimableRewardsPanel
+                dailyGoals={dailyGoals}
+                weeklyGoals={weeklyGoals}
+                streakRewards={streakRewards}
+                currentStreak={streakState.currentStreak}
+                longestStreak={streakState.longestStreak}
+                onClaimDaily={(goalId) => handleClaimGoal("daily", goalId)}
+                onClaimWeekly={(goalId) => handleClaimGoal("weekly", goalId)}
+                onClaimStreak={handleClaimStreakReward}
+              />
             ) : null}
 
             {progressTab === "streaks" ? (

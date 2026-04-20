@@ -9,7 +9,7 @@ import type {
   SubjectPrioritySetting,
   UserProgress,
 } from "../types";
-import { getLevelInfo, todayKey } from "./gameRules";
+import { todayKey } from "./gameRules";
 
 const subjectPriorityIds: Record<Subject, SubjectPrioritySetting["id"]> = {
   PB: "pb",
@@ -112,35 +112,21 @@ export function answerDailyQuickQuest(
     ...(progress.dailyQuickQuestStates[dateKey] ?? {}),
     [question.id]: state,
   };
-  const allAnswered = todaysQuestionIds.every((id) => Boolean(statesForDay[id]?.answeredAt));
-  const allAnsweredBonusAvailable = allAnswered && !progress.dailyQuickBonusDates.includes(dateKey);
-  const earnedCoins =
-    (correct ? dailyQuickQuestConfig.correctCoins : 0) +
-    (allAnsweredBonusAvailable ? dailyQuickQuestConfig.allAnsweredBonusCoins : 0);
-  const earnedXp = correct ? dailyQuickQuestConfig.correctXp : 0;
-  const nextXp = progress.xp + earnedXp;
+  const correctCount = todaysQuestionIds.filter((id) => statesForDay[id]?.status === "correct").length;
 
   const nextProgress: UserProgress = {
     ...progress,
-    coins: progress.coins + earnedCoins,
-    xp: nextXp,
-    level: getLevelInfo(nextXp).level,
-    totalCoinsEarned: progress.totalCoinsEarned + earnedCoins,
-    totalXpEarned: progress.totalXpEarned + earnedXp,
     dailyQuickQuestStates: {
       ...progress.dailyQuickQuestStates,
       [dateKey]: statesForDay,
     },
-    dailyQuickBonusDates: allAnsweredBonusAvailable
-      ? [...progress.dailyQuickBonusDates, dateKey]
-      : progress.dailyQuickBonusDates,
   };
 
   const rewardText = correct
-    ? `Richtig: +${dailyQuickQuestConfig.correctCoins} Coins und +${dailyQuickQuestConfig.correctXp} XP.`
+    ? `Richtig. Daily-Fortschritt: ${correctCount}/${dailyQuickQuestConfig.questsPerDay}.`
     : "Nicht richtig: keine Coins, aber die Wiederholung zaehlt.";
-  const bonusText = allAnsweredBonusAvailable
-    ? ` Tagesrunde komplett: +${dailyQuickQuestConfig.allAnsweredBonusCoins} Coins Bonus.`
+  const bonusText = correctCount >= dailyQuickQuestConfig.questsPerDay
+    ? ` Alle 5 richtig: ${dailyQuickQuestConfig.allCorrectBonusCoins} Coins sind im Belohnungs-Tab abholbar.`
     : "";
 
   return {

@@ -1664,6 +1664,31 @@ button:disabled {
   padding: 14px;
 }
 
+.claim-summary-card {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(231, 173, 52, 0.18), transparent 30%),
+    linear-gradient(180deg, #ffffff, #f8fbf7);
+}
+
+.claim-count {
+  background: #fff0c9;
+  border: 1px solid #f3d98b;
+  border-radius: 999px;
+  color: #7a5200;
+  font-weight: 900;
+  padding: 8px 12px;
+}
+
+.daily-quick-reward-note {
+  background: #f7faf6;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #405247;
+  font-weight: 700;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
 .timer-panel--running {
   background:
     radial-gradient(circle at 18% 0%, rgba(231, 173, 52, 0.14), transparent 30%),
