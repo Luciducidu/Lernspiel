@@ -3,12 +3,15 @@ import {
   completionBonusCoins,
   dailyGoalDefinitions,
   difficultyRewardMultipliers,
+  houseworkCompletionBonusCoins,
+  houseworkRewardTable,
+  houseworkTimeRewardConfig,
   levelUnlocks,
   questTypeRewardBase,
   timeRewardConfig,
   weeklyGoalDefinitions,
 } from "../data/balancing";
-import { studyQuestTemplates } from "../data/questContent";
+import { questTemplates } from "../data/questContent";
 import { normalizeQuestDuration } from "./durations";
 import type {
   ChestReward,
@@ -31,6 +34,35 @@ import type {
 } from "../types";
 
 export function calculateQuestReward(quest: Quest): RewardResult {
+  if (quest.type === "housework") {
+    const base = houseworkRewardTable[quest.difficulty];
+    const cappedMinutes = Math.min(houseworkTimeRewardConfig.softCapMinutes, Math.max(10, quest.durationMinutes));
+    const timeCurve = Math.sqrt(cappedMinutes / 20);
+    const timeBonusCoins = Math.round(base.coins * houseworkTimeRewardConfig.coinBonusRatio * timeCurve);
+    const timeBonusXp = Math.round(base.xp * houseworkTimeRewardConfig.xpBonusRatio * timeCurve);
+    const totalCoins = base.coins + houseworkCompletionBonusCoins + timeBonusCoins;
+    const totalXp = base.xp + timeBonusXp;
+
+    return {
+      coins: base.coins,
+      xp: totalXp,
+      bonusCoins: houseworkCompletionBonusCoins + timeBonusCoins,
+      reflectionBonusPrepared: false,
+      message: `Hausarbeit abgeschlossen: +${totalCoins} Coins und +${totalXp} XP.`,
+      formula: {
+        baseCoins: base.coins,
+        baseXp: base.xp,
+        difficultyMultiplier: 1,
+        timeBonusCoins,
+        timeBonusXp,
+        completionBonusCoins: houseworkCompletionBonusCoins,
+        totalCoins,
+        totalXp,
+        durationMinutes: quest.durationMinutes,
+      },
+    };
+  }
+
   const taskType = quest.taskType ?? "anwendung";
   const base = questTypeRewardBase[taskType];
   const difficultyMultiplier = difficultyRewardMultipliers[quest.difficulty];
@@ -400,6 +432,7 @@ export function applyQuestCompletion(progress: UserProgress, quest: Quest, rewar
   const session: SessionHistoryEntry = {
     id: crypto.randomUUID(),
     questId: quest.id,
+    questType: quest.type,
     date: date.toISOString(),
     dateKey,
     weekKey,
@@ -520,19 +553,23 @@ function getSubjectPriorityWeight(subject: Subject, priorities: SubjectPriorityS
   return rerollPriorityWeights[priority];
 }
 
-function getRotationPenalty(template: (typeof studyQuestTemplates)[number], quest: Quest): number {
+function getRotationPenalty(template: (typeof questTemplates)[number], quest: Quest): number {
   let penalty = 1;
   if (template.subject === quest.subject) penalty *= 0.45;
   if (template.topic === quest.topic) penalty *= 0.45;
   if (template.taskType === quest.taskType) penalty *= 0.35;
   if (template.mode === quest.mode) penalty *= 0.7;
+  if (template.type === quest.type) penalty *= 1.2;
+  if (template.type !== quest.type) penalty *= 0.65;
   return penalty;
 }
 
 export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] = []): Quest {
-  const weightedTemplates = studyQuestTemplates.map((template) => ({
+  const weightedTemplates = questTemplates.map((template) => ({
     template,
-    weight: getSubjectPriorityWeight(template.subject, priorities) * getRotationPenalty(template, quest),
+    weight:
+      (template.type === "housework" || !template.subject ? 1.2 : getSubjectPriorityWeight(template.subject, priorities)) *
+      getRotationPenalty(template, quest),
   }));
   const totalWeight = weightedTemplates.reduce((sum, item) => sum + item.weight, 0);
   let roll = Math.random() * Math.max(1, totalWeight);
@@ -547,7 +584,8 @@ export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] =
     ...quest,
     ...template,
     id: crypto.randomUUID(),
-    type: "study",
+    type: template.type,
+    subject: template.subject,
     createdAt: new Date().toISOString(),
     status: "open",
     acceptedAt: undefined,

@@ -18,6 +18,20 @@ export const questRewardTable: Record<Difficulty, { coins: number; xp: number }>
 
 export const completionBonusCoins = 15;
 
+export const houseworkRewardTable: Record<Difficulty, { coins: number; xp: number }> = {
+  easy: { coins: 24, xp: 8 },
+  medium: { coins: 42, xp: 15 },
+  hard: { coins: 60, xp: 22 },
+};
+
+export const houseworkCompletionBonusCoins = 5;
+
+export const houseworkTimeRewardConfig = {
+  softCapMinutes: 45,
+  coinBonusRatio: 0.14,
+  xpBonusRatio: 0.08,
+};
+
 export const questTypeRewardBase: Record<QuestTaskType, { coins: number; xp: number }> = {
   recall: { coins: 38, xp: 26 },
   struktur: { coins: 52, xp: 36 },

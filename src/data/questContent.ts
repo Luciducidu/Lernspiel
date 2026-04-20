@@ -10,10 +10,10 @@ import type {
 import { normalizeQuestDuration } from "../utils/durations";
 
 export interface StudyQuestTemplate {
-  type: "study";
+  type: "study" | "housework";
   title: string;
   category: string;
-  subject: Subject;
+  subject?: Subject;
   topic: string;
   taskType: QuestTaskType;
   mode: QuestMode;
@@ -22,6 +22,8 @@ export interface StudyQuestTemplate {
   difficulty: Difficulty;
   note: string;
 }
+
+export const houseworkTopics = ["Hausarbeit", "Alltag", "Ordnung"] as const;
 
 export const subjectTopics: Record<Subject, string[]> = {
   PB: [
@@ -188,6 +190,42 @@ export const studyQuestTemplates: StudyQuestTemplate[] = [
   t("Mathe", "Abiturtraining", "abi_training", "unter_zeitdruck", "Rechnung", "hard", 30, "Bearbeite einen 30-Minuten-Abi-Trainingsblock", "Wähle einen Schwerpunkt, rechne sauber und schreibe eine kurze Fehlerbilanz."),
 ];
 
+function h(
+  topic: (typeof houseworkTopics)[number],
+  difficulty: Difficulty,
+  durationMinutes: number,
+  title: string,
+  note: string,
+): StudyQuestTemplate {
+  return {
+    type: "housework",
+    title,
+    category: "Hausarbeit",
+    topic,
+    taskType: "anwendung",
+    mode: "solo",
+    outputType: "Stichpunkte",
+    durationMinutes,
+    difficulty,
+    note,
+  };
+}
+
+export const houseworkQuestTemplates: StudyQuestTemplate[] = [
+  h("Ordnung", "easy", 10, "Schreibtisch ordnen", "Räume Lernfläche, Stifte, Papier und offene Unterlagen so auf, dass die nächste Lerneinheit direkt starten kann."),
+  h("Alltag", "easy", 10, "Müll rausbringen", "Sammle Müll kurz ein und bringe ihn raus. Kleine Ordnung, kleiner Reward."),
+  h("Ordnung", "easy", 15, "Unterlagen sortieren", "Sortiere lose Blätter, Hefte oder digitale Notizen grob nach PB, Deutsch und Mathe."),
+  h("Hausarbeit", "medium", 20, "Staubwischen", "Wische Schreibtisch, Regal oder sichtbare Flächen einmal sauber ab."),
+  h("Hausarbeit", "medium", 25, "Staubsaugen", "Saugen mit klarem Bereich: Zimmer oder ein sinnvoll abgegrenzter Teil der Wohnung."),
+  h("Ordnung", "medium", 30, "Zimmer aufräumen", "Räume sichtbare Dinge an ihren Platz und mache den Raum lernbereit."),
+  h("Alltag", "medium", 20, "Wäsche zusammenlegen", "Lege vorhandene Wäsche zusammen und bringe sie an ihren Platz."),
+  h("Ordnung", "hard", 35, "Aussortieren", "Wähle eine Schublade, Tasche oder Ablage und sortiere konsequent aus."),
+  h("Hausarbeit", "hard", 45, "Gründliche Aufräumaktion", "Kombiniere Aufräumen, Oberflächen reinigen und Unterlagen ordnen in einem klaren Block."),
+  h("Alltag", "hard", 35, "Mehrere kleine Aufgaben kombinieren", "Erledige drei kleine Haushaltsaufgaben nacheinander, ohne dazwischen abzudriften."),
+];
+
+export const questTemplates: StudyQuestTemplate[] = [...studyQuestTemplates, ...houseworkQuestTemplates];
+
 function q(
   id: string,
   subject: Subject,
@@ -248,7 +286,7 @@ export const dailyQuickQuestions: MultipleChoiceQuestion[] = [
 export function createQuestFromTemplate(template: StudyQuestTemplate, index: number): Quest {
   return normalizeQuestDuration({
     ...template,
-    id: `abi-quest-seed-${index + 1}`,
+    id: `${template.type === "housework" ? "housework" : "abi"}-quest-seed-${index + 1}`,
     status: "open",
     createdAt: new Date().toISOString(),
   });

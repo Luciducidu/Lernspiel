@@ -7,7 +7,7 @@ const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
 const ACCOUNT_KEY = "lernquest.account";
-const APP_DATA_VERSION = 6;
+const APP_DATA_VERSION = 7;
 
 export const appDataVersion = APP_DATA_VERSION;
 
@@ -17,7 +17,7 @@ interface StorageMeta {
 }
 
 const validQuestStatuses: QuestStatus[] = ["open", "accepted", "in_progress", "completed", "cancelled"];
-const validQuestTypes: QuestType[] = ["study", "daily_quick"];
+const validQuestTypes: QuestType[] = ["study", "daily_quick", "housework"];
 const validSubjects: Subject[] = ["PB", "Deutsch", "Mathe"];
 
 function readJson<T>(key: string, fallback: T): T {
@@ -50,14 +50,19 @@ function normalizeQuest(quest: Quest): Quest {
   const migratedStatus = quest.status === ("active" as QuestStatus) ? "in_progress" : quest.status;
   const status = validQuestStatuses.includes(migratedStatus) ? migratedStatus : "open";
   const type = validQuestTypes.includes(quest.type) ? quest.type : "study";
-  const subject = quest.subject && validSubjects.includes(quest.subject) ? quest.subject : inferSubjectFromCategory(quest.category);
+  const subject =
+    type === "housework"
+      ? undefined
+      : quest.subject && validSubjects.includes(quest.subject)
+        ? quest.subject
+        : inferSubjectFromCategory(quest.category);
 
   return normalizeQuestDuration({
     ...quest,
     id: quest.id || crypto.randomUUID(),
     type,
     title: quest.title?.trim() || "Unbenannte Quest",
-    category: quest.category?.trim() || "Allgemein",
+    category: type === "housework" ? "Hausarbeit" : quest.category?.trim() || "Allgemein",
     subject,
     topic: quest.topic?.trim() || undefined,
     durationMinutes: Math.max(1, Number(quest.durationMinutes) || 25),
@@ -74,6 +79,14 @@ function inferSubjectFromCategory(category = ""): Subject | undefined {
   if (normalized.includes("deutsch")) return "Deutsch";
   if (normalized.includes("mathe")) return "Mathe";
   return undefined;
+}
+
+function isSupportedStoredQuest(quest: Quest): boolean {
+  if (quest.type === "housework") {
+    return quest.category === "Hausarbeit" && Boolean(quest.taskType && quest.mode && quest.outputType);
+  }
+
+  return validSubjects.includes(quest.subject as Subject) && Boolean(quest.taskType && quest.mode && quest.outputType);
 }
 
 function ensureMeta(): void {
@@ -100,9 +113,10 @@ export function loadQuests(): Quest[] {
   const stored = readJson<Quest[]>(QUESTS_KEY, initialQuests);
   const normalized = (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests)
     .map(normalizeQuest)
-    .filter((quest) => validSubjects.includes(quest.subject as Subject))
+    .filter(isSupportedStoredQuest)
     .filter((quest) => !quest.id.startsWith("quest-seed-"))
-    .filter((quest) => Boolean(quest.taskType && quest.mode && quest.outputType));
+    .filter((quest) => !quest.id.startsWith("abi-quest-seed-"))
+    .filter((quest) => !quest.id.startsWith("housework-quest-seed-"));
   const existingIds = new Set(normalized.map((quest) => quest.id));
   const missingSeedQuests = initialQuests.filter((quest) => !existingIds.has(quest.id)).map(normalizeQuest);
   return [...missingSeedQuests, ...normalized];
@@ -113,9 +127,10 @@ export function saveQuests(quests: Quest[]): void {
     QUESTS_KEY,
     quests
       .map(normalizeQuest)
-      .filter((quest) => validSubjects.includes(quest.subject as Subject))
+      .filter(isSupportedStoredQuest)
       .filter((quest) => !quest.id.startsWith("quest-seed-"))
-      .filter((quest) => Boolean(quest.taskType && quest.mode && quest.outputType)),
+      .filter((quest) => !quest.id.startsWith("abi-quest-seed-"))
+      .filter((quest) => !quest.id.startsWith("housework-quest-seed-")),
   );
 }
 

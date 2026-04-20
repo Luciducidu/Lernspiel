@@ -11,6 +11,12 @@ const difficultyLabels: Record<Quest["difficulty"], string> = {
   hard: "schwer",
 };
 
+const questTypeLabels: Record<Quest["type"], string> = {
+  study: "Lernquest",
+  daily_quick: "Daily Quick",
+  housework: "Hausarbeit",
+};
+
 interface QuestCardProps {
   quest: Quest;
   onSelect: (quest: Quest) => void;
@@ -42,9 +48,10 @@ export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, onDura
             <span className={`difficulty-mark difficulty-mark--${quest.difficulty}`}>{difficultyLabels[quest.difficulty]}</span>
             <QuestStatusBadge status={quest.status} />
           </div>
-          <span className="eyebrow">{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : quest.category}</span>
+          <span className="eyebrow">{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : `${quest.category}${quest.topic ? ` / ${quest.topic}` : ""}`}</span>
           <h3>{quest.title}</h3>
           <div className="quest-meta-badges">
+            <span>{questTypeLabels[quest.type]}</span>
             {quest.taskType ? <span>{taskTypeLabels[quest.taskType]}</span> : null}
             {quest.mode ? <span>{modeLabels[quest.mode]}</span> : null}
             {quest.outputType ? <span>{quest.outputType}</span> : null}

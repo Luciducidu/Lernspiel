@@ -44,7 +44,7 @@ function closestAllowed(value: number, options: number[]): number {
 }
 
 type DurationQuestInput = Partial<
-  Pick<Quest, "taskType" | "subject" | "difficulty" | "mode" | "outputType" | "durationMinutes" | "isCustom">
+  Pick<Quest, "type" | "taskType" | "subject" | "difficulty" | "mode" | "outputType" | "durationMinutes" | "isCustom">
 >;
 
 export function customQuestDurationOptions(selectedMinutes = 30): CustomQuestDurationOption[] {
@@ -63,6 +63,12 @@ export function normalizeCustomQuestDuration(minutes: number): number {
 }
 
 export function durationOptionsForQuest(quest: DurationQuestInput): number[] {
+  if (quest.type === "housework") {
+    if (quest.difficulty === "easy") return [10, 15];
+    if (quest.difficulty === "hard") return [30, 35, 45];
+    return [15, 20, 25, 30];
+  }
+
   const preset = quest.taskType ? presetsByTaskType[quest.taskType] : { options: [20, 25, 30], defaultDuration: 25 };
   const subjectOptions = subjectPreference(quest.subject);
   const merged = [...new Set([...preset.options, ...preset.options.filter((duration) => subjectOptions.includes(duration))])].sort(
@@ -78,6 +84,12 @@ export function durationOptionsForQuest(quest: DurationQuestInput): number[] {
 
 export function recommendedDurationForQuest(quest: DurationQuestInput): number {
   const options = durationOptionsForQuest(quest);
+  if (quest.type === "housework") {
+    if (quest.difficulty === "easy") return closestAllowed(15, options);
+    if (quest.difficulty === "hard") return closestAllowed(35, options);
+    return closestAllowed(20, options);
+  }
+
   const preset = quest.taskType ? presetsByTaskType[quest.taskType] : { options, defaultDuration: 25 };
   const baseIndex = Math.max(0, options.indexOf(closestAllowed(preset.defaultDuration, options)));
   const shiftedIndex = Math.min(options.length - 1, Math.max(0, baseIndex + difficultyShift[quest.difficulty ?? "medium"]));

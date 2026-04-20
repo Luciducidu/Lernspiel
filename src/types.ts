@@ -1,6 +1,6 @@
 export type Difficulty = "easy" | "medium" | "hard";
 
-export type QuestType = "study" | "daily_quick";
+export type QuestType = "study" | "daily_quick" | "housework";
 
 export type QuestStatus = "open" | "accepted" | "in_progress" | "completed" | "cancelled";
 
@@ -259,6 +259,7 @@ export interface WeeklyGoalProgress {
 export interface SessionHistoryEntry {
   id: string;
   questId: string;
+  questType?: QuestType;
   date: string;
   dateKey: string;
   weekKey: string;

@@ -26,7 +26,7 @@ import { StreakRewardsPanel } from "./components/StreakRewardsPanel";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { chestRewards, gemSpecialActions } from "./data/balancing";
-import { modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
+import { houseworkTopics, modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { usePersistentState } from "./hooks/usePersistentState";
 import type {
@@ -79,6 +79,7 @@ import { buildStreakRewards, claimStreakReward, getNextStreakReward } from "./ut
 import { createSyncBundle, fetchRemoteBundle, hashSyncSecret, mergeSyncData, normalizeUsername, saveRemoteBundle } from "./utils/sync";
 
 const emptyForm = {
+  type: "study" as QuestType,
   title: "",
   subject: "Deutsch" as Subject,
   topic: "Analyse und Interpretation",
@@ -145,7 +146,7 @@ function App() {
   const dailyQuickCorrectCount = dailyQuickQuestionsForToday.filter(
     (question) => getDailyQuickState(progress, question.id, todaysDateKey)?.status === "correct",
   ).length;
-  const topicOptions = subjectTopics[questDraft.subject];
+  const topicOptions = questDraft.type === "housework" ? [...houseworkTopics] : subjectTopics[questDraft.subject];
   const draftDurationOptions = customQuestDurationOptions(questDraft.durationMinutes);
   const draftRecommendedDuration = recommendedDurationForQuest(questDraft);
   const streakRewards = buildStreakRewards(progress);
@@ -153,6 +154,7 @@ function App() {
   const filteredStudyQuests = sortedQuests.filter((quest) => {
     const questSubject = inferQuestSubject(quest);
     return (
+      (questTypeFilter === "all" || quest.type === questTypeFilter) &&
       (subjectFilter === "all" || questSubject === subjectFilter) &&
       (difficultyFilter === "all" || quest.difficulty === difficultyFilter) &&
       (statusFilter === "all" || quest.status === statusFilter)
@@ -200,7 +202,7 @@ function App() {
   function handleCreateQuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = questDraft.title.trim();
-    const topic = questDraft.topic.trim();
+    const topic = questDraft.type === "housework" ? questDraft.topic.trim() || "Hausarbeit" : questDraft.topic.trim();
 
     if (!title || !topic || questDraft.durationMinutes < 1) {
       setToast("Titel, Fach und Dauer werden benötigt.");
@@ -211,10 +213,10 @@ function App() {
       ...normalizeQuestDuration(questDraft),
       id: crypto.randomUUID(),
       title,
-      type: "study",
+      type: questDraft.type,
       isCustom: true,
-      category: questDraft.subject,
-      subject: questDraft.subject,
+      category: questDraft.type === "housework" ? "Hausarbeit" : questDraft.subject,
+      subject: questDraft.type === "housework" ? undefined : questDraft.subject,
       topic,
       note: questDraft.note.trim() || undefined,
       status: "open",
@@ -790,6 +792,26 @@ function App() {
                   />
                 </label>
                 <label>
+                  Questtyp
+                  <select
+                    value={questDraft.type}
+                    onChange={(event) => {
+                      const type = event.target.value as QuestType;
+                      updateQuestDraft({
+                        type,
+                        topic: type === "housework" ? houseworkTopics[0] : subjectTopics[questDraft.subject][0],
+                        taskType: type === "housework" ? "anwendung" : questDraft.taskType,
+                        mode: type === "housework" ? "solo" : questDraft.mode,
+                        outputType: type === "housework" ? "Stichpunkte" : questDraft.outputType,
+                      });
+                    }}
+                  >
+                    <option value="study">Lernquest</option>
+                    <option value="housework">Hausarbeit</option>
+                  </select>
+                </label>
+                {questDraft.type === "study" ? (
+                <label>
                   Fach
                   <select
                     value={questDraft.subject}
@@ -803,8 +825,9 @@ function App() {
                     ))}
                   </select>
                 </label>
+                ) : null}
                 <label>
-                  Thema / Unterbereich
+                  {questDraft.type === "housework" ? "Bereich" : "Thema / Unterbereich"}
                   <select
                     value={questDraft.topic}
                     onChange={(event) => updateQuestDraft({ topic: event.target.value })}
@@ -814,6 +837,7 @@ function App() {
                     ))}
                   </select>
                 </label>
+                {questDraft.type === "study" ? (
                 <label>
                   Aufgabentyp
                   <select
@@ -825,6 +849,8 @@ function App() {
                     ))}
                   </select>
                 </label>
+                ) : null}
+                {questDraft.type === "study" ? (
                 <label>
                   Modus
                   <select
@@ -836,6 +862,8 @@ function App() {
                     ))}
                   </select>
                 </label>
+                ) : null}
+                {questDraft.type === "study" ? (
                 <label>
                   Output
                   <select
@@ -847,6 +875,7 @@ function App() {
                     ))}
                   </select>
                 </label>
+                ) : null}
                 <label>
                   Schwierigkeit
                   <select
@@ -917,7 +946,7 @@ function App() {
             <section className="content-card">
               <div className="section-heading">
                 <span className="eyebrow">Quest-Liste</span>
-                <h2>Abi-Quests und Daily Quick Quests</h2>
+                <h2>Lernquests, Hausarbeit und Daily Quick Quests</h2>
               </div>
               <div className="quest-filter-bar" aria-label="Quest-Filter">
                 <label>
@@ -937,12 +966,13 @@ function App() {
                       const nextType = event.target.value as "all" | QuestType;
                       setQuestTypeFilter(nextType);
                       if (nextType === "daily_quick") setQuestTab("daily");
-                      if (nextType === "study" && questTab === "daily") setQuestTab("open");
+                      if ((nextType === "study" || nextType === "housework") && questTab === "daily") setQuestTab("open");
                     }}
                   >
                     <option value="all">Alle Typen</option>
                     <option value="study">Lernquests</option>
                     <option value="daily_quick">Daily Quick Quests</option>
+                    <option value="housework">Hausarbeit</option>
                   </select>
                 </label>
                 <label>
