@@ -14,8 +14,10 @@ import { GemActionPanel } from "./components/GemActionPanel";
 import { LevelProgressCard } from "./components/LevelProgressCard";
 import { LuckyChestModal } from "./components/LuckyChestModal";
 import { ProgressBar } from "./components/ProgressBar";
+import { PurchaseFeedbackModal } from "./components/PurchaseFeedbackModal";
 import { QuestAcceptModal } from "./components/QuestAcceptModal";
 import { QuestCard } from "./components/QuestCard";
+import { RewardInventoryPanel } from "./components/RewardInventoryPanel";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { SessionHistory } from "./components/SessionHistory";
 import { ShopSection } from "./components/ShopSection";
@@ -36,6 +38,7 @@ import type {
   CompletionSummary,
   Difficulty,
   MultipleChoiceQuestion,
+  PurchaseResult,
   Quest,
   QuestStatus,
   QuestType,
@@ -111,6 +114,7 @@ function App() {
   const [previewChestTier, setPreviewChestTier] = useState<ChestTier | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummary | null>(null);
   const [celebration, setCelebration] = useState<CelebrationToastData | null>(null);
+  const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null);
   const [toast, setToast] = useState<string>("Bereit für deine nächste Quest.");
 
   const {
@@ -510,6 +514,11 @@ function App() {
 
     if (item.currency === "coins" && progress.coins < item.price) {
       setToast("Dafür fehlen noch Coins.");
+      showCelebration({
+        tone: "info",
+        title: "Noch nicht genug Coins",
+        message: `${item.name} kostet ${item.price} Coins. Dir fehlen noch ${Math.max(0, item.price - progress.coins)} Coins.`,
+      });
       return;
     }
 
@@ -523,7 +532,23 @@ function App() {
       const paid = spendCoins(current, item.price);
 
       if (!item.isLuckyChest) {
-        return applyAvailableGoalRewards({ ...paid, purchasedRewards: [...paid.purchasedRewards, item.name] }).progress;
+        const inventoryItem = {
+          id: crypto.randomUUID(),
+          shopItemId: item.id,
+          name: item.name,
+          description: item.description,
+          durationLabel: item.durationLabel,
+          price: item.price,
+          currency: item.currency,
+          purchasedAt: new Date().toISOString(),
+          status: "available" as const,
+        };
+
+        return applyAvailableGoalRewards({
+          ...paid,
+          purchasedRewards: [...paid.purchasedRewards, item.name],
+          rewardInventory: [inventoryItem, ...paid.rewardInventory],
+        }).progress;
       }
 
       return reward ? applyChestReward(paid, reward) : paid;
@@ -541,9 +566,24 @@ function App() {
           reward.activity ?? "",
         ].filter(Boolean),
       });
+    } else {
+      const purchase: PurchaseResult = {
+        itemName: item.name,
+        durationLabel: item.durationLabel,
+        price: item.price,
+        currency: item.currency,
+        purchasedAt: new Date().toISOString(),
+      };
+      setPurchaseResult(purchase);
+      showCelebration({
+        tone: "reward",
+        title: "Belohnung gekauft",
+        message: item.durationLabel ? `${item.durationLabel} ${item.name} freigeschaltet.` : `${item.name} ist jetzt in deinem Inventar.`,
+        rewards: [`-${item.price} ${item.currency === "coins" ? "Coins" : "Gems"}`, item.durationLabel ?? "Verfügbar"],
+      });
     }
 
-    setToast(reward ? `${item.name} geöffnet: ${reward.title}.` : `${item.name} gekauft.`);
+    setToast(reward ? `${item.name} geöffnet: ${reward.title}.` : `${item.name} gekauft und im Inventar gespeichert.`);
   }
 
   function handlePreviewChest(item: ShopItem) {
@@ -1032,6 +1072,7 @@ function App() {
 
         {activePage === "shop" ? (
           <div className="page-stack">
+            <RewardInventoryPanel items={progress.rewardInventory} />
             <ShopSection
               eyebrow="Standard-Shop"
               title="Immer verfügbare Belohnungen"
@@ -1217,6 +1258,13 @@ function App() {
       </main>
 
       <CelebrationToast celebration={celebration} onClose={() => setCelebration(null)} />
+      <PurchaseFeedbackModal
+        purchase={purchaseResult}
+        onClose={() => {
+          setPurchaseResult(null);
+          setActivePage("shop");
+        }}
+      />
       <QuestAcceptModal quest={selectedQuest} onAccept={handleAcceptQuest} onDecline={() => setSelectedQuest(null)} />
       <ChestContentsModal
         tier={previewChestTier}

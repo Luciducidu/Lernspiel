@@ -65,6 +65,11 @@ export function mergeSyncData(local: { quests: Quest[]; progress: UserProgress }
       startedQuestDaysHistory: [...new Set([...remote.progress.startedQuestDaysHistory, ...local.progress.startedQuestDaysHistory])].sort(),
       chestOpenDates: [...remote.progress.chestOpenDates, ...local.progress.chestOpenDates],
       purchasedRewards: [...new Set([...remote.progress.purchasedRewards, ...local.progress.purchasedRewards])],
+      rewardInventory: [
+        ...new Map(
+          [...(remote.progress.rewardInventory ?? []), ...(local.progress.rewardInventory ?? [])].map((item) => [item.id, item]),
+        ).values(),
+      ].sort((a, b) => b.purchasedAt.localeCompare(a.purchasedAt)),
       streakRewardClaims: [
         ...remote.progress.streakRewardClaims,
         ...local.progress.streakRewardClaims.filter(

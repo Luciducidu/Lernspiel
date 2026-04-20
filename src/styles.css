@@ -1903,6 +1903,80 @@ button:disabled {
   border-color: rgba(231, 173, 52, 0.42);
 }
 
+.purchase-modal {
+  text-align: center;
+  border-color: var(--reward);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(231, 173, 52, 0.22), transparent 38%),
+    linear-gradient(180deg, #fffaf0, #ffffff);
+  box-shadow: 0 24px 80px rgba(92, 64, 12, 0.22);
+}
+
+.purchase-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin: 22px 0;
+}
+
+.purchase-summary strong,
+.inventory-card {
+  border: 1px solid rgba(231, 173, 52, 0.34);
+  border-radius: 8px;
+  background: #fffdf7;
+  box-shadow: 0 14px 32px rgba(75, 92, 71, 0.08);
+}
+
+.purchase-summary strong {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  animation: rewardPop 420ms ease-out both;
+}
+
+.purchase-summary span,
+.inventory-card__meta {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.inventory-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.inventory-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.inventory-card h3,
+.inventory-card p {
+  margin: 0;
+}
+
+.inventory-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inventory-card__meta span {
+  border-radius: 999px;
+  background: var(--reward-soft);
+  color: #6a4c00;
+  padding: 6px 9px;
+  font-weight: 800;
+}
+
 .chest-category-row {
   display: flex;
   flex-wrap: wrap;

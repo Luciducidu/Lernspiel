@@ -15,6 +15,7 @@ export const initialProgress: UserProgress = {
   streakRewardClaims: [],
   completedToday: 0,
   purchasedRewards: [],
+  rewardInventory: [],
   discountTokens: 0,
   streakProtectionTokens: 0,
   specialVouchers: 0,

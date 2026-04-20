@@ -1,5 +1,15 @@
 import { initialProgress, initialQuests } from "../data/seed";
-import type { AccountState, Quest, QuestStatus, QuestType, Subject, SubjectId, SubjectPriority, UserProgress } from "../types";
+import type {
+  AccountState,
+  Quest,
+  QuestStatus,
+  QuestType,
+  RewardInventoryItem,
+  Subject,
+  SubjectId,
+  SubjectPriority,
+  UserProgress,
+} from "../types";
 import { normalizeQuestDuration } from "./durations";
 import { getLevelInfo, todayKey } from "./gameRules";
 
@@ -7,7 +17,7 @@ const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
 const ACCOUNT_KEY = "lernquest.account";
-const APP_DATA_VERSION = 7;
+const APP_DATA_VERSION = 8;
 
 export const appDataVersion = APP_DATA_VERSION;
 
@@ -44,6 +54,26 @@ function writeJson<T>(key: string, value: T): void {
 
 function clampNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, value) : fallback;
+}
+
+function normalizeRewardInventory(items: unknown): RewardInventoryItem[] {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .filter((item): item is Partial<RewardInventoryItem> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      id: item.id || crypto.randomUUID(),
+      shopItemId: item.shopItemId || "legacy-reward",
+      name: item.name?.trim() || "Belohnung",
+      description: item.description?.trim() || "Gekaufte Belohnung aus dem Shop.",
+      durationLabel: item.durationLabel,
+      price: clampNumber(item.price, 0),
+      currency: item.currency === "gems" ? "gems" : "coins",
+      purchasedAt: item.purchasedAt || new Date().toISOString(),
+      status: item.status === "active" || item.status === "used" ? item.status : "available",
+    }));
 }
 
 function normalizeQuest(quest: Quest): Quest {
@@ -158,6 +188,7 @@ export function loadProgress(): UserProgress {
     streak,
     completedToday: stored.lastCompletedDate === todayKey() ? clampNumber(stored.completedToday, 0) : 0,
     purchasedRewards: Array.isArray(stored.purchasedRewards) ? stored.purchasedRewards : [],
+    rewardInventory: normalizeRewardInventory(stored.rewardInventory),
     discountTokens: clampNumber(stored.discountTokens, 0),
     streakProtectionTokens: clampNumber(stored.streakProtectionTokens, 0),
     specialVouchers: clampNumber(stored.specialVouchers, 0),

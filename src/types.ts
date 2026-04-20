@@ -10,6 +10,8 @@ export type ChestTier = "bronze" | "silver" | "gold";
 
 export type RewardCurrency = "coins" | "gems";
 
+export type RewardStatus = "available" | "active" | "used";
+
 export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "settings";
 
 export type AccountMode = "local" | "account";
@@ -140,6 +142,7 @@ export interface UserProgress {
   streakRewardClaims: StreakRewardClaim[];
   completedToday: number;
   purchasedRewards: string[];
+  rewardInventory: RewardInventoryItem[];
   discountTokens: number;
   streakProtectionTokens: number;
   specialVouchers: number;
@@ -157,6 +160,26 @@ export interface UserProgress {
   sessionHistory: SessionHistoryEntry[];
   subjectPriorities: SubjectPrioritySetting[];
   soundEnabled: boolean;
+}
+
+export interface RewardInventoryItem {
+  id: string;
+  shopItemId: string;
+  name: string;
+  description: string;
+  durationLabel?: string;
+  price: number;
+  currency: RewardCurrency;
+  purchasedAt: string;
+  status: RewardStatus;
+}
+
+export interface PurchaseResult {
+  itemName: string;
+  durationLabel?: string;
+  price: number;
+  currency: RewardCurrency;
+  purchasedAt: string;
 }
 
 export interface ShopItem {
