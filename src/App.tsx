@@ -234,10 +234,40 @@ function App() {
       return;
     }
 
-    // Der bewusste Annahmeschritt ist die einzige Stelle, an der offene Quests startbar werden.
-    updateQuest(quest.id, { status: "accepted", acceptedAt: new Date().toISOString() });
+    const startedAt = new Date().toISOString();
+
+    // Der bewusste Annahmeschritt startet offene Quests direkt: keine zweite Start-Huerde nach dem Modal.
+    setQuests((current) =>
+      current.map((currentQuest) => {
+        if (currentQuest.id === quest.id) {
+          return {
+            ...currentQuest,
+            status: "in_progress",
+            acceptedAt: startedAt,
+            startedAt,
+            pausedAt: undefined,
+            accumulatedPausedMs: 0,
+          };
+        }
+
+        return currentQuest.status === "in_progress" ? { ...currentQuest, status: "accepted" } : currentQuest;
+      }),
+    );
+    const nextProgress = applyQuestStart(progress);
+    const claimedGoals = getClaimedGoalDiff(progress, nextProgress);
+    setProgress(nextProgress);
+    if (claimedGoals.length > 0) {
+      showCelebration({
+        tone: "reward",
+        title: "Zielbelohnung erhalten",
+        message: "Dein Queststart hat ein Tages- oder Wochenziel abgeschlossen.",
+        rewards: claimedGoals,
+      });
+    }
+    setActiveQuestId(quest.id);
+    setActivePage("focus");
     setSelectedQuest(null);
-    setToast("Quest angenommen. Du kannst sie jetzt starten.");
+    setToast("Quest angenommen. Fokusmodus startet.");
   }
 
   function handleStartQuest(quest: Quest) {
