@@ -4,20 +4,20 @@ import { isSyncBackendConfigured } from "../utils/sync";
 
 interface AccountPanelProps {
   account: AccountState;
-  onLogin: (username: string, syncKey: string) => void;
+  onLogin: (username: string, password: string) => void;
   onLogout: () => void;
   onSync: () => void;
 }
 
 export function AccountPanel({ account, onLogin, onLogout, onSync }: AccountPanelProps) {
   const [username, setUsername] = useState(account.username ?? "");
-  const [syncKey, setSyncKey] = useState("");
+  const [password, setPassword] = useState("");
   const configured = isSyncBackendConfigured();
   const loggedIn = account.mode === "account" && Boolean(account.username);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onLogin(username, syncKey);
+    onLogin(username, password);
   }
 
   return (
@@ -27,13 +27,13 @@ export function AccountPanel({ account, onLogin, onLogout, onSync }: AccountPane
         <h2>Optional anmelden</h2>
       </div>
       <p className="section-copy">
-        Du kannst LernQuest weiter lokal nutzen. Mit Konto werden Quests und Fortschritt über ein Sync-Backend auf andere Geräte übertragen.
+        Du kannst LernQuest weiter lokal nutzen. Mit Konto werden Quests und Fortschritt gespeichert und mit Backend auf andere Geräte übertragen.
       </p>
 
       {!configured ? (
         <div className="sync-notice sync-notice--offline">
-          <strong>Sync-Backend nicht konfiguriert</strong>
-          <span>Gastmodus bleibt aktiv. Für echte Geräte-Synchronisation muss `VITE_SYNC_API_URL` gesetzt sein.</span>
+          <strong>Lokaler Konto-Speicher aktiv</strong>
+          <span>Registrieren und Anmelden funktioniert auf diesem Browser. Für echte Geräte-Synchronisation muss später ein Sync-Backend gesetzt sein.</span>
         </div>
       ) : null}
 
@@ -45,7 +45,7 @@ export function AccountPanel({ account, onLogin, onLogout, onSync }: AccountPane
           {account.lastSyncedAt ? <small>Letzter Sync: {new Date(account.lastSyncedAt).toLocaleString("de-DE")}</small> : null}
           {account.syncMessage ? <p>{account.syncMessage}</p> : null}
           <div className="account-actions">
-            <button className="button button--primary" type="button" onClick={onSync} disabled={!configured || account.syncStatus === "syncing"}>
+            <button className="button button--primary" type="button" onClick={onSync} disabled={account.syncStatus === "syncing"}>
               Daten synchronisieren
             </button>
             <button className="button button--ghost" type="button" onClick={onLogout}>
@@ -57,21 +57,22 @@ export function AccountPanel({ account, onLogin, onLogout, onSync }: AccountPane
         <form className="account-form" onSubmit={handleSubmit}>
           <label>
             Benutzername
-            <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="z. B. abi2026" />
+            <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="z. B. abi2026" autoComplete="username" />
           </label>
           <label>
-            Sync-Schlüssel
+            Passwort
             <input
-              value={syncKey}
-              onChange={(event) => setSyncKey(event.target.value)}
-              placeholder="Privater Schlüssel zum Wiederanmelden"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Passwort zum Wiederanmelden"
               type="password"
+              autoComplete="current-password"
             />
           </label>
-          <button className="button button--primary" type="submit" disabled={!configured || account.syncStatus === "syncing"}>
+          <button className="button button--primary" type="submit" disabled={account.syncStatus === "syncing"}>
             Konto erstellen / anmelden
           </button>
-          <small>Der Sync-Schlüssel wird lokal nur als Hash gespeichert. Der Benutzername allein reicht nicht zum Laden fremder Daten.</small>
+          <small>Das Passwort wird nur als Hash gespeichert. Der Benutzername allein reicht nicht zum Laden fremder Daten.</small>
           {account.syncMessage ? <p>{account.syncMessage}</p> : null}
         </form>
       )}

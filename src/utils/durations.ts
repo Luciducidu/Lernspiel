@@ -118,8 +118,8 @@ export function normalizeQuestDuration<T extends Partial<Quest>>(quest: T): T & 
 } {
   if (quest.isCustom) {
     const selected = clampCustomDuration(Number(quest.durationMinutes) || 30);
-    const recommended = recommendedDurationForQuest(quest);
-    const options = [...new Set([recommended, ...customQuestQuickDurations, selected])].sort((a, b) => a - b);
+    const recommended = selected;
+    const options = [...new Set([selected, ...customQuestQuickDurations])].sort((a, b) => a - b);
 
     return {
       ...quest,

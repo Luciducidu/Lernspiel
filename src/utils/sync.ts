@@ -2,6 +2,7 @@ import type { AccountState, Quest, SyncBundle, UserProgress } from "../types";
 import { appDataVersion } from "./storage";
 
 const syncApiUrl = import.meta.env.VITE_SYNC_API_URL as string | undefined;
+const localAccountPrefix = "lernquest.account.bundle.";
 
 export function isSyncBackendConfigured(): boolean {
   return Boolean(syncApiUrl?.trim());
@@ -21,6 +22,10 @@ export async function hashSyncSecret(username: string, secret: string): Promise<
 function endpointFor(username: string): string {
   const base = syncApiUrl?.replace(/\/$/, "");
   return `${base}/users/${encodeURIComponent(normalizeUsername(username))}`;
+}
+
+function localAccountKey(username: string): string {
+  return `${localAccountPrefix}${normalizeUsername(username)}`;
 }
 
 export function createSyncBundle(account: AccountState, quests: Quest[], progress: UserProgress): SyncBundle {
@@ -96,7 +101,8 @@ export function mergeSyncData(local: { quests: Quest[]; progress: UserProgress }
 
 export async function fetchRemoteBundle(username: string): Promise<SyncBundle | null> {
   if (!isSyncBackendConfigured()) {
-    throw new Error("Kein Sync-Backend konfiguriert.");
+    const stored = localStorage.getItem(localAccountKey(username));
+    return stored ? (JSON.parse(stored) as SyncBundle) : null;
   }
 
   const response = await fetch(endpointFor(username), { method: "GET" });
@@ -107,7 +113,8 @@ export async function fetchRemoteBundle(username: string): Promise<SyncBundle | 
 
 export async function saveRemoteBundle(bundle: SyncBundle): Promise<void> {
   if (!isSyncBackendConfigured()) {
-    throw new Error("Kein Sync-Backend konfiguriert.");
+    localStorage.setItem(localAccountKey(bundle.username), JSON.stringify(bundle));
+    return;
   }
 
   const response = await fetch(endpointFor(bundle.username), {

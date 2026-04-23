@@ -608,7 +608,7 @@ function App() {
       setAccount((current) => ({
         ...current,
         syncStatus: "error",
-        syncMessage: "Benutzername und ein Sync-Schlüssel mit mindestens 6 Zeichen werden benötigt.",
+        syncMessage: "Benutzername und ein Passwort mit mindestens 6 Zeichen werden benötigt.",
       }));
       return;
     }
@@ -624,7 +624,7 @@ function App() {
         setAccount((current) => ({
           ...current,
           syncStatus: "error",
-          syncMessage: "Sync-Schlüssel passt nicht zu diesem Benutzernamen.",
+          syncMessage: "Passwort passt nicht zu diesem Benutzernamen.",
         }));
         return;
       }
@@ -639,7 +639,7 @@ function App() {
         passphraseHash,
         lastSyncedAt: new Date().toISOString(),
         syncStatus: "success",
-        syncMessage: remote ? "Lokale Daten wurden mit Kontodaten zusammengeführt." : "Konto erstellt und lokale Daten hochgeladen.",
+        syncMessage: remote ? "Lokale Daten wurden mit Kontodaten zusammengeführt." : "Konto erstellt und lokale Daten gespeichert.",
       });
       setToast("Konto verbunden. Fortschritt ist synchronisiert.");
     } catch (error) {
@@ -663,7 +663,7 @@ function App() {
     try {
       const remote = await fetchRemoteBundle(account.username);
       if (remote && remote.passphraseHash !== account.passphraseHash) {
-        throw new Error("Sync-Schlüssel passt nicht mehr zum Konto.");
+        throw new Error("Passwort passt nicht mehr zum Konto.");
       }
       const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
       setQuests(merged.quests);
