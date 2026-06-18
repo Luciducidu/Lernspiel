@@ -1,10 +1,12 @@
-import type { AppPage, BrainworkoutModeState, DailyGoal, FocusSummary, LevelInfo, LevelUnlock, Quest, StreakState } from "../types";
+import type { AppPage, BrainworkoutModeState, BrainworkoutWeeklyPlan, BrainworkoutWeeklyReflection, DailyGoal, FocusSummary, LevelInfo, LevelUnlock, Quest, StreakState } from "../types";
 import { ActiveQuestCard } from "./ActiveQuestCard";
 import { AreaProgressGrid } from "./AreaProgressGrid";
 import { DailyPlanTierSelector } from "./DailyPlanTierSelector";
 import { DashboardCard } from "./DashboardCard";
 import { ExternalAppTaskCard } from "./ExternalAppTaskCard";
 import { ProgressBar } from "./ProgressBar";
+import { WeeklyPlanSummaryCard } from "./WeeklyPlanSummaryCard";
+import { WeeklyReflectionSummaryCard } from "./WeeklyReflectionSummaryCard";
 import { WeeklyFocusCard } from "./WeeklyFocusCard";
 
 interface BrainworkoutDashboardProps {
@@ -14,11 +16,15 @@ interface BrainworkoutDashboardProps {
   activeQuest: Quest | null;
   acceptedCount: number;
   recommendedQuest?: Quest;
+  quests: Quest[];
   weeklyGoals: DailyGoal[];
+  currentWeeklyPlan?: BrainworkoutWeeklyPlan;
+  latestWeeklyReflection?: BrainworkoutWeeklyReflection;
   streakState: StreakState;
   focusSummary: FocusSummary;
   onNavigate: (page: AppPage) => void;
   onSelectQuest: (quest: Quest) => void;
+  onCopyReflectionPrompt: () => void;
 }
 
 export function BrainworkoutDashboard({
@@ -28,11 +34,15 @@ export function BrainworkoutDashboard({
   activeQuest,
   acceptedCount,
   recommendedQuest,
+  quests,
   weeklyGoals,
+  currentWeeklyPlan,
+  latestWeeklyReflection,
   streakState,
   focusSummary,
   onNavigate,
   onSelectQuest,
+  onCopyReflectionPrompt,
 }: BrainworkoutDashboardProps) {
   return (
     <div className="page-stack">
@@ -44,7 +54,7 @@ export function BrainworkoutDashboard({
           <ProgressBar value={levelInfo.xpInCurrentLevel} max={levelInfo.xpForNextLevel} label={`Level ${levelInfo.level}`} />
           <div className="hero-actions">
             <button className="button button--primary" type="button" onClick={() => onNavigate("planning")}>
-              Tag planen
+              Woche planen
             </button>
             <button className="button button--ghost" type="button" onClick={() => onNavigate("quests")}>
               Aufgaben ansehen
@@ -86,8 +96,21 @@ export function BrainworkoutDashboard({
         </article>
       </section>
 
-      <DailyPlanTierSelector todayMinutes={focusSummary.todayMinutes} />
-      <WeeklyFocusCard title="Routine vor Intensitaet" description="Diese Woche zaehlt ein stabiler Rhythmus mehr als perfekte Einheiten." goals={weeklyGoals} />
+      <section className="planning-grid">
+        <WeeklyPlanSummaryCard plan={currentWeeklyPlan} onEdit={() => onNavigate("planning")} />
+        <WeeklyReflectionSummaryCard reflection={latestWeeklyReflection} onCopyPrompt={onCopyReflectionPrompt} />
+      </section>
+
+      <DailyPlanTierSelector todayMinutes={focusSummary.todayMinutes} quests={quests} onSelectQuest={onSelectQuest} weeklyPlan={currentWeeklyPlan} />
+      <WeeklyFocusCard
+        title={currentWeeklyPlan ? "Fokus lenkt, nicht zwingt" : "Routine vor Intensitaet"}
+        description={
+          currentWeeklyPlan
+            ? `Diese Woche liegt der Schwerpunkt auf ${currentWeeklyPlan.concreteGoal || "einem realistischen Brainworkout-Ziel"}.`
+            : "Diese Woche zaehlt ein stabiler Rhythmus mehr als perfekte Einheiten."
+        }
+        goals={weeklyGoals}
+      />
       <AreaProgressGrid progress={brainworkout.areaProgress} />
 
       <section className="external-task-grid">

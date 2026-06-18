@@ -3,6 +3,8 @@ import type {
   AppMode,
   AppPage,
   AppState,
+  BrainworkoutWeeklyPlan,
+  BrainworkoutWeeklyReflection,
   DailyGoal,
   FocusSummary,
   LevelInfo,
@@ -12,6 +14,7 @@ import type {
   StreakState,
   SubjectPrioritySetting,
 } from "../types";
+import { getQuestAppMode } from "../utils/modeScopedQuestSelectors";
 import { AbiDashboard } from "./AbiDashboard";
 import { BrainworkoutDashboard } from "./BrainworkoutDashboard";
 
@@ -26,6 +29,8 @@ interface DashboardPageProps {
   subjects: SubjectPrioritySetting[];
   nextDailyGoal?: DailyGoal;
   weeklyGoals: DailyGoal[];
+  currentWeeklyPlan?: BrainworkoutWeeklyPlan;
+  latestWeeklyReflection?: BrainworkoutWeeklyReflection;
   quests: Quest[];
   dailyQuickQuestions: MultipleChoiceQuestion[];
   dailyQuickAnsweredCount: number;
@@ -37,6 +42,7 @@ interface DashboardPageProps {
   onNavigate: (page: AppPage) => void;
   onOpenDaily: () => void;
   onSelectQuest: (quest: Quest) => void;
+  onCopyReflectionPrompt: () => void;
 }
 
 export function DashboardPage({
@@ -50,6 +56,8 @@ export function DashboardPage({
   subjects,
   nextDailyGoal,
   weeklyGoals,
+  currentWeeklyPlan,
+  latestWeeklyReflection,
   quests,
   dailyQuickQuestions,
   dailyQuickAnsweredCount,
@@ -61,9 +69,11 @@ export function DashboardPage({
   onNavigate,
   onOpenDaily,
   onSelectQuest,
+  onCopyReflectionPrompt,
 }: DashboardPageProps) {
-  const recommendedAbiQuest = quests.find((quest) => quest.type === "study" && quest.status === "open");
-  const recommendedBrainworkoutQuest = quests.find((quest) => quest.type === "housework" && quest.status === "open");
+  const recommendedAbiQuest = quests.find((quest) => getQuestAppMode(quest) === "abi" && quest.type === "study" && quest.status === "open");
+  const recommendedBrainworkoutQuest = quests.find((quest) => getQuestAppMode(quest) === "brainworkout" && quest.status === "open");
+  const brainworkoutQuests = quests.filter((quest) => getQuestAppMode(quest) === "brainworkout");
 
   if (activeMode === "brainworkout") {
     return (
@@ -74,11 +84,15 @@ export function DashboardPage({
         activeQuest={activeQuest}
         acceptedCount={acceptedCount}
         recommendedQuest={recommendedBrainworkoutQuest}
+        quests={brainworkoutQuests}
         weeklyGoals={weeklyGoals}
+        currentWeeklyPlan={currentWeeklyPlan}
+        latestWeeklyReflection={latestWeeklyReflection}
         streakState={streakState}
         focusSummary={focusSummary}
         onNavigate={onNavigate}
         onSelectQuest={onSelectQuest}
+        onCopyReflectionPrompt={onCopyReflectionPrompt}
       />
     );
   }

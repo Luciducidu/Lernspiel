@@ -1,7 +1,7 @@
 import type { Quest, UserProgress } from "../types";
-import { createQuestFromTemplate, questTemplates } from "./questContent";
+import { allQuestTemplates, createQuestFromTemplate } from "./questContent";
 
-export const initialQuests: Quest[] = questTemplates.map(createQuestFromTemplate);
+export const initialQuests: Quest[] = allQuestTemplates.map(createQuestFromTemplate);
 
 export const initialProgress: UserProgress = {
   coins: 120,

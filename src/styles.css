@@ -29,10 +29,16 @@
   box-sizing: border-box;
 }
 
+html,
+#root {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
@@ -127,6 +133,7 @@ button:disabled {
   width: min(100%, 1680px);
   margin: 0 auto;
   padding: 34px clamp(28px, 3vw, 56px) 48px;
+  min-width: 0;
 }
 
 .topbar {
@@ -284,6 +291,7 @@ button:disabled {
 .gem-panel,
 .compact-card {
   padding: 22px;
+  min-width: 0;
 }
 
 .content-card:hover,
@@ -466,6 +474,29 @@ button:disabled {
   gap: 16px;
 }
 
+.day-tier-column {
+  display: grid;
+  gap: 10px;
+}
+
+.tier-quest-suggestion {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--text);
+  text-align: left;
+  box-shadow: 0 8px 18px rgba(36, 54, 42, 0.05);
+}
+
+.tier-quest-suggestion span {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
 .area-progress-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -507,6 +538,34 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--card-soft);
+}
+
+.weekly-plan-summary,
+.weekly-reflection-summary,
+.weekly-plan-form,
+.weekly-reflection-form {
+  display: grid;
+  gap: 14px;
+}
+
+.weekly-plan-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekly-plan-facts span {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 28px;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 .mode-progress-preview {
@@ -1897,6 +1956,53 @@ button:disabled {
   gap: 10px;
 }
 
+.data-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.data-status-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card-soft);
+}
+
+.data-status-card strong {
+  font-size: 1.08rem;
+}
+
+.data-status-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.data-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.data-import-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.data-import-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.data-hint {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .timer-panel--running {
   background:
     radial-gradient(circle at 18% 0%, rgba(231, 173, 52, 0.14), transparent 30%),
@@ -2838,6 +2944,15 @@ button:disabled {
   .account-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .data-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .data-actions .button {
+    width: 100%;
   }
 }
 

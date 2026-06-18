@@ -11,7 +11,8 @@ import {
   timeRewardConfig,
   weeklyGoalDefinitions,
 } from "../data/balancing";
-import { questTemplates } from "../data/questContent";
+import { allQuestTemplates, type AnyQuestTemplate } from "../data/questContent";
+import { getQuestAppMode } from "./modeScopedQuestSelectors";
 import { normalizeQuestDuration } from "./durations";
 import type {
   ChestReward,
@@ -33,7 +34,50 @@ import type {
   UserProgress,
 } from "../types";
 
-export function calculateQuestReward(quest: Quest): RewardResult {
+export function calculateBrainworkoutQuestReward(quest: Quest): RewardResult {
+  if (quest.type !== "housework") {
+    const isExternalApp = quest.brainworkoutQuestType === "chess_app" || quest.brainworkoutQuestType === "driving_app";
+    const isMinimum = quest.dailyPlanTier === "minimum";
+    const baseByDifficulty: Record<Difficulty, { coins: number; xp: number }> = {
+      easy: isExternalApp ? { coins: 24, xp: 8 } : { coins: 38, xp: 18 },
+      medium: isExternalApp ? { coins: 34, xp: 12 } : { coins: 58, xp: 28 },
+      hard: isExternalApp ? { coins: 46, xp: 16 } : { coins: 82, xp: 42 },
+    };
+    const base = baseByDifficulty[quest.difficulty];
+    const cappedMinutes = Math.min(90, Math.max(5, quest.durationMinutes));
+    const timeCurve = Math.sqrt(cappedMinutes / 30);
+    const tierFactor = isMinimum ? 0.75 : quest.dailyPlanTier === "strong" ? 1.12 : 1;
+    const baseCoins = Math.round(base.coins * tierFactor);
+    const baseXp = Math.round(base.xp * tierFactor);
+    const timeBonusCoins = Math.round(base.coins * 0.18 * timeCurve);
+    const timeBonusXp = Math.round(base.xp * 0.12 * timeCurve);
+    const totalCoins = baseCoins + timeBonusCoins;
+    const totalXp = baseXp + timeBonusXp;
+
+    return {
+      coins: baseCoins,
+      xp: totalXp,
+      bonusCoins: timeBonusCoins,
+      reflectionBonusPrepared: quest.brainworkoutQuestType !== "chess_app" && quest.brainworkoutQuestType !== "driving_app",
+      message: `Brainworkout abgeschlossen: +${totalCoins} Coins und +${totalXp} XP.`,
+      formula: {
+        baseCoins: base.coins,
+        baseXp: base.xp,
+        difficultyMultiplier: tierFactor,
+        timeBonusCoins,
+        timeBonusXp,
+        completionBonusCoins: 0,
+        totalCoins,
+        totalXp,
+        durationMinutes: quest.durationMinutes,
+      },
+    };
+  }
+
+  return calculateHouseworkQuestReward(quest);
+}
+
+function calculateHouseworkQuestReward(quest: Quest): RewardResult {
   if (quest.type === "housework") {
     const base = houseworkRewardTable[quest.difficulty];
     const cappedMinutes = Math.min(houseworkTimeRewardConfig.softCapMinutes, Math.max(10, quest.durationMinutes));
@@ -63,6 +107,10 @@ export function calculateQuestReward(quest: Quest): RewardResult {
     };
   }
 
+  return calculateAbiQuestReward(quest);
+}
+
+export function calculateAbiQuestReward(quest: Quest): RewardResult {
   const taskType = quest.taskType ?? "anwendung";
   const base = questTypeRewardBase[taskType];
   const difficultyMultiplier = difficultyRewardMultipliers[quest.difficulty];
@@ -93,6 +141,10 @@ export function calculateQuestReward(quest: Quest): RewardResult {
       durationMinutes: quest.durationMinutes,
     },
   };
+}
+
+export function calculateQuestReward(quest: Quest): RewardResult {
+  return getQuestAppMode(quest) === "brainworkout" ? calculateBrainworkoutQuestReward(quest) : calculateAbiQuestReward(quest);
 }
 
 export function getXpRequirementForLevel(level: number): number {
@@ -432,7 +484,12 @@ export function applyQuestCompletion(progress: UserProgress, quest: Quest, rewar
   const session: SessionHistoryEntry = {
     id: crypto.randomUUID(),
     questId: quest.id,
+    appMode: getQuestAppMode(quest),
     questType: quest.type,
+    subject: quest.subject,
+    area: quest.area,
+    brainworkoutQuestType: quest.brainworkoutQuestType,
+    dailyPlanTier: quest.dailyPlanTier,
     date: date.toISOString(),
     dateKey,
     weekKey,
@@ -553,22 +610,34 @@ function getSubjectPriorityWeight(subject: Subject, priorities: SubjectPriorityS
   return rerollPriorityWeights[priority];
 }
 
-function getRotationPenalty(template: (typeof questTemplates)[number], quest: Quest): number {
+function getTemplateSubject(template: AnyQuestTemplate): Subject | undefined {
+  return "brainworkoutQuestType" in template ? undefined : template.subject;
+}
+
+function getTemplateType(template: AnyQuestTemplate): Quest["type"] {
+  return "brainworkoutQuestType" in template ? (template.brainworkoutQuestType === "housework" ? "housework" : "study") : template.type;
+}
+
+function getRotationPenalty(template: AnyQuestTemplate, quest: Quest): number {
   let penalty = 1;
-  if (template.subject === quest.subject) penalty *= 0.45;
+  if (getTemplateSubject(template) === quest.subject) penalty *= 0.45;
   if (template.topic === quest.topic) penalty *= 0.45;
   if (template.taskType === quest.taskType) penalty *= 0.35;
   if (template.mode === quest.mode) penalty *= 0.7;
-  if (template.type === quest.type) penalty *= 1.2;
-  if (template.type !== quest.type) penalty *= 0.65;
+  if (getTemplateType(template) === quest.type) penalty *= 1.2;
+  if (getTemplateType(template) !== quest.type) penalty *= 0.65;
   return penalty;
 }
 
 export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] = []): Quest {
-  const weightedTemplates = questTemplates.map((template) => ({
+  const questAppMode = getQuestAppMode(quest);
+  const templates = allQuestTemplates.filter((template) =>
+    "brainworkoutQuestType" in template ? questAppMode === "brainworkout" : questAppMode === (template.type === "housework" ? "brainworkout" : "abi"),
+  );
+  const weightedTemplates = templates.map((template) => ({
     template,
     weight:
-      (template.type === "housework" || !template.subject ? 1.2 : getSubjectPriorityWeight(template.subject, priorities)) *
+      ("brainworkoutQuestType" in template || template.type === "housework" || !template.subject ? 1.2 : getSubjectPriorityWeight(template.subject, priorities)) *
       getRotationPenalty(template, quest),
   }));
   const totalWeight = weightedTemplates.reduce((sum, item) => sum + item.weight, 0);
@@ -584,8 +653,9 @@ export function rerollQuest(quest: Quest, priorities: SubjectPrioritySetting[] =
     ...quest,
     ...template,
     id: crypto.randomUUID(),
-    type: template.type,
-    subject: template.subject,
+    appMode: "brainworkoutQuestType" in template ? "brainworkout" : template.type === "housework" ? "brainworkout" : "abi",
+    type: getTemplateType(template),
+    subject: "brainworkoutQuestType" in template ? undefined : template.subject,
     createdAt: new Date().toISOString(),
     status: "open",
     acceptedAt: undefined,

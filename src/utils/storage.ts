@@ -4,6 +4,11 @@ import type {
   AppMode,
   AppState,
   BrainworkoutAreaId,
+  BrainworkoutWeeklyPlan,
+  BrainworkoutWeeklyReflection,
+  SessionHistoryEntry,
+  BrainworkoutQuestType,
+  DailyPlanTier,
   Quest,
   QuestStatus,
   QuestType,
@@ -15,13 +20,14 @@ import type {
 } from "../types";
 import { normalizeQuestDuration } from "./durations";
 import { getLevelInfo, todayKey } from "./gameRules";
+import { getQuestAppMode, withQuestAppMode } from "./modeScopedQuestSelectors";
 
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
 const ACCOUNT_KEY = "lernquest.account";
 const APP_STATE_KEY = "lernquest.appState";
-const APP_DATA_VERSION = 9;
+const APP_DATA_VERSION = 12;
 
 export const appDataVersion = APP_DATA_VERSION;
 
@@ -42,6 +48,19 @@ const brainworkoutAreas: BrainworkoutAreaId[] = [
   "driving_license",
   "housework_life",
 ];
+const validBrainworkoutQuestTypes: BrainworkoutQuestType[] = [
+  "math_foundations",
+  "physics_understanding",
+  "poetry_language",
+  "logic_puzzle",
+  "chess_app",
+  "driving_app",
+  "weekly_reflection",
+  "housework",
+];
+const validDailyPlanTiers: DailyPlanTier[] = ["minimum", "normal", "strong"];
+const validEnergyLevels = ["low", "medium", "high"];
+const validPressureLevels = ["low", "medium", "high"];
 
 function readJson<T>(key: string, fallback: T): T {
   const stored = localStorage.getItem(key);
@@ -100,12 +119,31 @@ function normalizeQuest(quest: Quest): Quest {
         ? quest.subject
         : inferSubjectFromCategory(quest.category);
 
+  const appMode = getQuestAppMode(quest);
+  const normalizedArea =
+    quest.area && brainworkoutAreas.includes(quest.area)
+      ? quest.area
+      : appMode === "brainworkout" && type === "housework"
+        ? "housework_life"
+        : undefined;
+  const normalizedBrainworkoutType =
+    quest.brainworkoutQuestType && validBrainworkoutQuestTypes.includes(quest.brainworkoutQuestType)
+      ? quest.brainworkoutQuestType
+      : appMode === "brainworkout" && type === "housework"
+        ? "housework"
+        : undefined;
+
   return normalizeQuestDuration({
     ...quest,
     id: quest.id || crypto.randomUUID(),
+    appMode,
     type,
     title: quest.title?.trim() || "Unbenannte Quest",
+    description: quest.description?.trim() || quest.note?.trim() || undefined,
     category: type === "housework" ? "Hausarbeit" : quest.category?.trim() || "Allgemein",
+    area: normalizedArea,
+    brainworkoutQuestType: normalizedBrainworkoutType,
+    dailyPlanTier: quest.dailyPlanTier && validDailyPlanTiers.includes(quest.dailyPlanTier) ? quest.dailyPlanTier : undefined,
     subject,
     topic: quest.topic?.trim() || undefined,
     durationMinutes: Math.max(1, Number(quest.durationMinutes) || 25),
@@ -125,6 +163,11 @@ function inferSubjectFromCategory(category = ""): Subject | undefined {
 }
 
 function isSupportedStoredQuest(quest: Quest): boolean {
+  const appMode = getQuestAppMode(quest);
+  if (appMode === "brainworkout") {
+    return Boolean(quest.area || quest.type === "housework" || quest.brainworkoutQuestType);
+  }
+
   if (quest.type === "housework") {
     return quest.category === "Hausarbeit" && Boolean(quest.taskType && quest.mode && quest.outputType);
   }
@@ -155,6 +198,101 @@ function modeLevelFromXp(xp: number): number {
   return getLevelInfo(xp).level;
 }
 
+function normalizeWeeklyPlans(value: unknown): BrainworkoutWeeklyPlan[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is Partial<BrainworkoutWeeklyPlan> => typeof item === "object" && item !== null)
+    .map((item) => {
+      const now = new Date().toISOString();
+      return {
+        weekId: item.weekId || "",
+        startDate: item.startDate || now.slice(0, 10),
+        endDate: item.endDate || now.slice(0, 10),
+        availableTimeEstimate:
+          item.availableTimeEstimate === "under_2h" ||
+          item.availableTimeEstimate === "2_4h" ||
+          item.availableTimeEstimate === "4_6h" ||
+          item.availableTimeEstimate === "over_6h"
+            ? item.availableTimeEstimate
+            : "2_4h",
+        fixedAppointmentsNote: item.fixedAppointmentsNote || "",
+        mainFocusArea: item.mainFocusArea && brainworkoutAreas.includes(item.mainFocusArea) ? item.mainFocusArea : "math_first_semester",
+        energyLevel: validEnergyLevels.includes(item.energyLevel ?? "") ? item.energyLevel! : "medium",
+        obligations: Array.isArray(item.obligations) ? item.obligations.filter((entry): entry is string => typeof entry === "string") : [],
+        pressureLevel: validPressureLevels.includes(item.pressureLevel ?? "") ? item.pressureLevel! : "low",
+        concreteGoal: item.concreteGoal || "",
+        status: item.status === "draft" || item.status === "completed" ? item.status : "active" as const,
+        createdAt: item.createdAt || now,
+        updatedAt: item.updatedAt || item.createdAt || now,
+      };
+    })
+    .filter((item) => Boolean(item.weekId));
+}
+
+function normalizeWeeklyReflections(value: unknown): BrainworkoutWeeklyReflection[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is Partial<BrainworkoutWeeklyReflection> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      id: item.id || crypto.randomUUID(),
+      weekId: item.weekId || "",
+      completedAt: item.completedAt || new Date().toISOString(),
+      accomplished: item.accomplished || "",
+      tooMuch: item.tooMuch || "",
+      understood: item.understood || "",
+      enjoyable: item.enjoyable || "",
+      simplifyNextWeek: item.simplifyNextWeek || "",
+      nextWeekGoal: item.nextWeekGoal || "",
+      mood: item.mood === "good" || item.mood === "mixed" || item.mood === "hard" ? item.mood : undefined,
+      energyAfterWeek: validEnergyLevels.includes(item.energyAfterWeek ?? "") ? item.energyAfterWeek : undefined,
+      notes: item.notes || undefined,
+    }))
+    .filter((item) => Boolean(item.weekId));
+}
+
+function normalizeSessionHistory(value: unknown): SessionHistoryEntry[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((session): session is Partial<SessionHistoryEntry> => typeof session === "object" && session !== null)
+    .map((session) => {
+      const appMode =
+        session.appMode === "brainworkout" || session.questType === "housework" || session.category === "Hausarbeit"
+          ? "brainworkout"
+          : "abi";
+
+      return {
+        id: session.id || crypto.randomUUID(),
+        questId: session.questId || "legacy-session",
+        appMode,
+        questType: session.questType,
+        subject: session.subject && validSubjects.includes(session.subject) ? session.subject : inferSubjectFromCategory(session.category),
+        area: session.area && brainworkoutAreas.includes(session.area) ? session.area : appMode === "brainworkout" ? "housework_life" : undefined,
+        brainworkoutQuestType: session.brainworkoutQuestType,
+        dailyPlanTier: session.dailyPlanTier,
+        date: session.date || new Date().toISOString(),
+        dateKey: session.dateKey || todayKey(),
+        weekKey: session.weekKey || "",
+        questTitle: session.questTitle || "Alte Session",
+        category: session.category || (appMode === "brainworkout" ? "Brainworkout" : "Abi"),
+        difficulty: session.difficulty === "medium" || session.difficulty === "hard" ? session.difficulty : "easy",
+        durationMinutes: clampNumber(session.durationMinutes, 1),
+        earnedCoins: clampNumber(session.earnedCoins, 0),
+        earnedXp: clampNumber(session.earnedXp, 0),
+        reflection: session.reflection,
+        status: "completed" as const,
+      };
+    });
+}
+
 function makeGlobalState(progress: UserProgress): AppState["global"] {
   return {
     coins: progress.coins,
@@ -168,7 +306,7 @@ function makeGlobalState(progress: UserProgress): AppState["global"] {
 }
 
 function makeAbiState(progress: UserProgress, quests: Quest[]): AppState["abi"] {
-  const abiQuestIds = quests.filter((quest) => quest.type !== "housework").map((quest) => quest.id);
+  const abiQuestIds = quests.filter((quest) => getQuestAppMode(quest) === "abi").map((quest) => quest.id);
   const abiSessionIds = progress.sessionHistory
     .filter((session) => session.questType !== "housework")
     .map((session) => session.id);
@@ -186,7 +324,7 @@ function makeAbiState(progress: UserProgress, quests: Quest[]): AppState["abi"] 
 }
 
 function makeBrainworkoutState(progress: UserProgress, quests: Quest[]): AppState["brainworkout"] {
-  const brainQuestIds = quests.filter((quest) => quest.type === "housework").map((quest) => quest.id);
+  const brainQuestIds = quests.filter((quest) => getQuestAppMode(quest) === "brainworkout").map((quest) => quest.id);
   const brainSessionIds = progress.sessionHistory
     .filter((session) => session.questType === "housework")
     .map((session) => session.id);
@@ -209,6 +347,8 @@ function makeBrainworkoutState(progress: UserProgress, quests: Quest[]): AppStat
       housework_life: brainSessionIds.length,
     },
     weeklyReflectionIds: [],
+    weeklyPlans: [],
+    weeklyReflections: [],
   };
 }
 
@@ -280,6 +420,8 @@ function normalizeAppState(stored: Partial<AppState>): AppState {
       weeklyReflectionIds: Array.isArray(stored.brainworkout?.weeklyReflectionIds)
         ? stored.brainworkout.weeklyReflectionIds
         : migrated.brainworkout.weeklyReflectionIds,
+      weeklyPlans: normalizeWeeklyPlans(stored.brainworkout?.weeklyPlans ?? migrated.brainworkout.weeklyPlans),
+      weeklyReflections: normalizeWeeklyReflections(stored.brainworkout?.weeklyReflections ?? migrated.brainworkout.weeklyReflections),
     },
   };
 }
@@ -289,10 +431,12 @@ export function loadQuests(): Quest[] {
   const stored = readJson<Quest[]>(QUESTS_KEY, initialQuests);
   const normalized = (Array.isArray(stored) && stored.length > 0 ? stored : initialQuests)
     .map(normalizeQuest)
+    .map(withQuestAppMode)
     .filter(isSupportedStoredQuest)
     .filter((quest) => !quest.id.startsWith("quest-seed-"))
     .filter((quest) => !quest.id.startsWith("abi-quest-seed-"))
-    .filter((quest) => !quest.id.startsWith("housework-quest-seed-"));
+    .filter((quest) => !quest.id.startsWith("housework-quest-seed-"))
+    .filter((quest) => !quest.id.startsWith("brainworkout-quest-seed-"));
   const existingIds = new Set(normalized.map((quest) => quest.id));
   const missingSeedQuests = initialQuests.filter((quest) => !existingIds.has(quest.id)).map(normalizeQuest);
   return [...missingSeedQuests, ...normalized];
@@ -303,10 +447,12 @@ export function saveQuests(quests: Quest[]): void {
     QUESTS_KEY,
     quests
       .map(normalizeQuest)
+      .map(withQuestAppMode)
       .filter(isSupportedStoredQuest)
       .filter((quest) => !quest.id.startsWith("quest-seed-"))
       .filter((quest) => !quest.id.startsWith("abi-quest-seed-"))
-      .filter((quest) => !quest.id.startsWith("housework-quest-seed-")),
+      .filter((quest) => !quest.id.startsWith("housework-quest-seed-"))
+      .filter((quest) => !quest.id.startsWith("brainworkout-quest-seed-")),
   );
 }
 
@@ -357,7 +503,7 @@ export function loadProgress(): UserProgress {
     weeklyGoalProgress: stored.weeklyGoalProgress ?? {},
     dailyQuickQuestStates: stored.dailyQuickQuestStates ?? {},
     dailyQuickBonusDates: Array.isArray(stored.dailyQuickBonusDates) ? stored.dailyQuickBonusDates : [],
-    sessionHistory: Array.isArray(stored.sessionHistory) ? stored.sessionHistory : [],
+    sessionHistory: normalizeSessionHistory(stored.sessionHistory),
     soundEnabled: typeof stored.soundEnabled === "boolean" ? stored.soundEnabled : initialProgress.soundEnabled,
     subjectPriorities: Array.isArray(stored.subjectPriorities)
       ? initialProgress.subjectPriorities.map((subject) => ({

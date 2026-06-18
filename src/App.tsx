@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ActivityCalendar } from "./components/ActivityCalendar";
 import { AccountPanel } from "./components/AccountPanel";
+import { AbiProgressView } from "./components/AbiProgressView";
+import { BrainworkoutProgressView } from "./components/BrainworkoutProgressView";
 import { DashboardCard } from "./components/DashboardCard";
 import { DashboardPage } from "./components/DashboardPage";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
@@ -8,6 +10,7 @@ import { ChestContentsModal } from "./components/ChestContentsModal";
 import { ClaimableRewardsPanel } from "./components/ClaimableRewardsPanel";
 import { CompletionModal } from "./components/CompletionModal";
 import { DailyQuickQuestCard } from "./components/DailyQuickQuestCard";
+import { DataManagementPanel } from "./components/DataManagementPanel";
 import { DailyGoalCard } from "./components/DailyGoalCard";
 import { GemActionPanel } from "./components/GemActionPanel";
 import { LevelProgressCard } from "./components/LevelProgressCard";
@@ -30,6 +33,7 @@ import { StreakRewardsPanel } from "./components/StreakRewardsPanel";
 import { TimerPanel } from "./components/TimerPanel";
 import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { chestRewards, gemSpecialActions } from "./data/balancing";
+import { brainworkoutAreaLabels, brainworkoutQuestTypeLabels, dailyPlanTierLabels } from "./data/brainworkoutQuestPool";
 import { houseworkTopics, modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
 import { useAppMode } from "./hooks/useAppMode";
@@ -37,6 +41,10 @@ import { usePersistentState } from "./hooks/usePersistentState";
 import type {
   AppPage,
   AppMode,
+  BrainworkoutAreaId,
+  BrainworkoutWeeklyPlan,
+  BrainworkoutWeeklyReflection,
+  BrainworkoutQuestType,
   ChestReward,
   ChestTier,
   CompletionSummary,
@@ -49,6 +57,7 @@ import type {
   QuestMode,
   QuestOutputType,
   QuestTaskType,
+  DailyPlanTier,
   ReflectionData,
   ShopItem,
   Subject,
@@ -62,6 +71,7 @@ import {
   claimGoalReward,
   applyQuestStart,
   applyQuestCompletion,
+  buildStatsSummary,
   calculateQuestReward,
   drawChestReward,
   getLatestUnlock,
@@ -75,7 +85,10 @@ import {
   todayKey,
 } from "./utils/gameRules";
 import { loadAccount, loadAppState, loadProgress, loadQuests, saveAccount, saveAppState, saveProgress, saveQuests } from "./utils/storage";
+import { getModeScopedQuests, getQuestAppMode } from "./utils/modeScopedQuestSelectors";
 import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
+import { getModeSessions } from "./utils/modeProgress";
+import { createAppExportData, downloadExportFile, parseAppExportFile } from "./utils/dataPortability";
 import {
   customQuestDurationOptions,
   normalizeCustomQuestDuration,
@@ -87,8 +100,12 @@ import { createSyncBundle, fetchRemoteBundle, hashSyncSecret, mergeSyncData, nor
 
 const emptyForm = {
   type: "study" as QuestType,
+  appMode: "abi" as AppMode,
   title: "",
   subject: "Deutsch" as Subject,
+  area: "math_first_semester" as BrainworkoutAreaId,
+  brainworkoutQuestType: "math_foundations" as BrainworkoutQuestType,
+  dailyPlanTier: "normal" as DailyPlanTier,
   topic: "Analyse und Interpretation",
   taskType: "anwendung" as QuestTaskType,
   mode: "solo" as QuestMode,
@@ -109,6 +126,9 @@ function App() {
     "overview" | "claims" | "daily" | "weekly" | "streaks" | "calendar" | "stats" | "history" | "unlocks"
   >("overview");
   const [subjectFilter, setSubjectFilter] = useState<"all" | Subject>("all");
+  const [areaFilter, setAreaFilter] = useState<"all" | BrainworkoutAreaId>("all");
+  const [brainworkoutTypeFilter, setBrainworkoutTypeFilter] = useState<"all" | BrainworkoutQuestType>("all");
+  const [dailyPlanTierFilter, setDailyPlanTierFilter] = useState<"all" | DailyPlanTier>("all");
   const [questTypeFilter, setQuestTypeFilter] = useState<"all" | QuestType>("all");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | Difficulty>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | QuestStatus>("all");
@@ -145,7 +165,7 @@ function App() {
   } = useAppDerivedState(quests, progress, activeQuestId);
   const subjectFocus = getSubjectFocusText(progress.subjectPriorities);
   const todaysDateKey = todayKey();
-  const dailyQuickQuestionsForToday = getDailyQuickQuestionsForDate(progress.subjectPriorities, todaysDateKey);
+  const dailyQuickQuestionsForToday = activeMode === "abi" ? getDailyQuickQuestionsForDate(progress.subjectPriorities, todaysDateKey) : [];
   const dailyQuickQuestionIds = dailyQuickQuestionsForToday.map((question) => question.id);
   const filteredDailyQuickQuestions = dailyQuickQuestionsForToday.filter(
     (question) => subjectFilter === "all" || question.subject === subjectFilter,
@@ -156,16 +176,28 @@ function App() {
   const dailyQuickCorrectCount = dailyQuickQuestionsForToday.filter(
     (question) => getDailyQuickState(progress, question.id, todaysDateKey)?.status === "correct",
   ).length;
-  const topicOptions = questDraft.type === "housework" ? [...houseworkTopics] : subjectTopics[questDraft.subject];
+  const brainworkoutAreaOptions = Object.keys(brainworkoutAreaLabels) as BrainworkoutAreaId[];
+  const brainworkoutQuestTypeOptions = Object.keys(brainworkoutQuestTypeLabels) as BrainworkoutQuestType[];
+  const dailyPlanTierOptions = Object.keys(dailyPlanTierLabels) as DailyPlanTier[];
+  const topicOptions =
+    activeMode === "brainworkout"
+      ? [brainworkoutAreaLabels[questDraft.area]]
+      : questDraft.type === "housework"
+        ? [...houseworkTopics]
+        : subjectTopics[questDraft.subject];
   const draftDurationOptions = customQuestDurationOptions(questDraft.durationMinutes);
   const draftRecommendedDuration = recommendedDurationForQuest(questDraft);
   const streakRewards = buildStreakRewards(progress);
   const nextStreakReward = getNextStreakReward(progress);
-  const filteredStudyQuests = sortedQuests.filter((quest) => {
+  const modeScopedQuests = getModeScopedQuests(sortedQuests, activeMode);
+  const modeScopedAcceptedCount = modeScopedQuests.filter((quest) => quest.status === "accepted").length;
+  const filteredStudyQuests = modeScopedQuests.filter((quest) => {
     const questSubject = inferQuestSubject(quest);
     return (
       (questTypeFilter === "all" || quest.type === questTypeFilter) &&
-      (subjectFilter === "all" || questSubject === subjectFilter) &&
+      (activeMode === "abi" ? subjectFilter === "all" || questSubject === subjectFilter : areaFilter === "all" || quest.area === areaFilter) &&
+      (activeMode === "brainworkout" ? brainworkoutTypeFilter === "all" || quest.brainworkoutQuestType === brainworkoutTypeFilter : true) &&
+      (activeMode === "brainworkout" ? dailyPlanTierFilter === "all" || quest.dailyPlanTier === dailyPlanTierFilter : true) &&
       (difficultyFilter === "all" || quest.difficulty === difficultyFilter) &&
       (statusFilter === "all" || quest.status === statusFilter)
     );
@@ -176,6 +208,17 @@ function App() {
   const chestItems = [...standardItems, ...premiumItems].filter((item) => item.isLuckyChest);
   const standardRewardItems = standardItems.filter((item) => !item.isLuckyChest);
   const premiumRewardItems = premiumItems.filter((item) => !item.isLuckyChest);
+  const currentWeekId = getWeekKey();
+  const currentWeeklyPlan = appState.brainworkout.weeklyPlans.find((plan) => plan.weekId === currentWeekId);
+  const latestWeeklyReflection = [...appState.brainworkout.weeklyReflections].sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0];
+  const modeSessions = getModeSessions(progress.sessionHistory, activeMode);
+  const modeStatsSummary = buildStatsSummary({ ...progress, sessionHistory: modeSessions });
+
+  useEffect(() => {
+    if (activeMode === "brainworkout" && questTab === "daily") {
+      setQuestTab("open");
+    }
+  }, [activeMode, questTab]);
 
   useEffect(() => {
     setAppState((current) => {
@@ -197,7 +240,7 @@ function App() {
             ...current.brainworkout,
             xp: progress.xp,
             level: getLevelInfo(progress.xp).level,
-            questIds: quests.filter((quest) => quest.type === "housework").map((quest) => quest.id),
+            questIds: quests.filter((quest) => getQuestAppMode(quest) === "brainworkout").map((quest) => quest.id),
             sessionHistoryIds: progress.sessionHistory
               .filter((session) => session.questType === "housework")
               .map((session) => session.id),
@@ -212,7 +255,7 @@ function App() {
           ...current.abi,
           xp: progress.xp,
           level: getLevelInfo(progress.xp).level,
-          questIds: quests.filter((quest) => quest.type !== "housework").map((quest) => quest.id),
+          questIds: quests.filter((quest) => getQuestAppMode(quest) === "abi").map((quest) => quest.id),
           sessionHistoryIds: progress.sessionHistory
             .filter((session) => session.questType !== "housework")
             .map((session) => session.id),
@@ -246,6 +289,17 @@ function App() {
       return;
     }
 
+    if (activeQuest?.status === "in_progress") {
+      const shouldSwitch = window.confirm(
+        "Eine Fokus-Quest läuft gerade. Wenn du den Modus wechselst, bleibt die Quest gespeichert und du kannst später zurückkehren. Jetzt wechseln?",
+      );
+      if (!shouldSwitch) {
+        return;
+      }
+      setActiveQuestId(null);
+      setActivePage("dashboard");
+    }
+
     const target = appState[mode];
     setAppState((current) => {
       const currentLevel = getLevelInfo(progress.xp).level;
@@ -268,7 +322,115 @@ function App() {
     }));
     setQuestTypeFilter("all");
     setSubjectFilter("all");
+    setAreaFilter("all");
+    setBrainworkoutTypeFilter("all");
+    setDailyPlanTierFilter("all");
+    setQuestTab(mode === "brainworkout" ? "open" : "daily");
+    setQuestDraft({
+      ...emptyForm,
+      appMode: mode,
+      type: mode === "brainworkout" ? "study" : "study",
+      topic: mode === "brainworkout" ? brainworkoutAreaLabels.math_first_semester : emptyForm.topic,
+    });
     setToast(`${mode === "abi" ? "Abi-Modus" : "Brainworkout-Modus"} aktiviert. Deine Daten bleiben erhalten.`);
+  }
+
+  function getWeekDateRange() {
+    const now = new Date();
+    const day = now.getDay() === 0 ? 7 : now.getDay();
+    const start = new Date(now);
+    start.setDate(now.getDate() - day + 1);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return {
+      startDate: start.toISOString().slice(0, 10),
+      endDate: end.toISOString().slice(0, 10),
+    };
+  }
+
+  function handleSaveWeeklyPlan(
+    draft: Pick<
+      BrainworkoutWeeklyPlan,
+      "availableTimeEstimate" | "fixedAppointmentsNote" | "mainFocusArea" | "energyLevel" | "obligations" | "pressureLevel" | "concreteGoal"
+    >,
+  ) {
+    const now = new Date().toISOString();
+    const range = getWeekDateRange();
+    const existing = currentWeeklyPlan;
+    const nextPlan: BrainworkoutWeeklyPlan = {
+      weekId: currentWeekId,
+      ...range,
+      ...draft,
+      status: "active",
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    };
+
+    setAppState((current) => ({
+      ...current,
+      brainworkout: {
+        ...current.brainworkout,
+        weeklyPlans: [nextPlan, ...current.brainworkout.weeklyPlans.filter((plan) => plan.weekId !== currentWeekId)],
+      },
+    }));
+    setToast("Brainworkout-Wochenplanung gespeichert.");
+  }
+
+  function handleSaveWeeklyReflection(
+    draft: Omit<BrainworkoutWeeklyReflection, "id" | "weekId" | "completedAt">,
+  ) {
+    const reflection: BrainworkoutWeeklyReflection = {
+      id: crypto.randomUUID(),
+      weekId: currentWeekId,
+      completedAt: new Date().toISOString(),
+      ...draft,
+    };
+
+    setAppState((current) => ({
+      ...current,
+      brainworkout: {
+        ...current.brainworkout,
+        weeklyReflectionIds: [reflection.id, ...current.brainworkout.weeklyReflectionIds.filter((id) => id !== reflection.id)],
+        weeklyReflections: [reflection, ...current.brainworkout.weeklyReflections],
+      },
+    }));
+    showCelebration({
+      tone: "reward",
+      title: "Wochenreflexion gespeichert",
+      message: "Du hast die Woche bewusst abgeschlossen.",
+      rewards: ["Routine gestärkt", "Planung für nächste Woche vorbereitet"],
+    });
+    setToast("Wochenreflexion gespeichert.");
+  }
+
+  async function handleCopyReflectionPrompt() {
+    const reflection = latestWeeklyReflection;
+    const weeklyFocus = currentWeeklyPlan
+      ? `${brainworkoutAreaLabels[currentWeeklyPlan.mainFocusArea]} mit dem Ziel: ${currentWeeklyPlan.concreteGoal || "ruhig weiterarbeiten"}`
+      : "Kein Wochenfokus gespeichert";
+    if (!reflection) {
+      setToast("Noch keine Reflexion zum Kopieren vorhanden.");
+      return;
+    }
+
+    const prompt = `Analysiere meine Brainworkout-Wochenreflexion und leite realistische nächste Schritte ab.
+
+Wochenfokus: ${weeklyFocus}
+Geschafft: ${reflection.accomplished}
+Zu viel: ${reflection.tooMuch}
+Verstanden: ${reflection.understood}
+Hat Spaß gemacht: ${reflection.enjoyable}
+Nächste Woche einfacher: ${reflection.simplifyNextWeek}
+Nächstes Ziel: ${reflection.nextWeekGoal}
+
+Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 konkrete nächste Schritte.`;
+
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setToast("Reflexionsprompt kopiert.");
+    } catch {
+      setToast("Kopieren nicht möglich. Öffne die Reflexion und kopiere sie manuell.");
+    }
   }
 
   function getClaimedGoalDiff(before: typeof progress, after: typeof progress): string[] {
@@ -288,7 +450,12 @@ function App() {
   function handleCreateQuest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = questDraft.title.trim();
-    const topic = questDraft.type === "housework" ? questDraft.topic.trim() || "Hausarbeit" : questDraft.topic.trim();
+    const isBrainworkout = activeMode === "brainworkout";
+    const topic = isBrainworkout
+      ? questDraft.topic.trim() || brainworkoutAreaLabels[questDraft.area]
+      : questDraft.type === "housework"
+        ? questDraft.topic.trim() || "Hausarbeit"
+        : questDraft.topic.trim();
 
     if (!title || !topic || questDraft.durationMinutes < 1) {
       setToast("Titel, Fach und Dauer werden benötigt.");
@@ -296,13 +463,25 @@ function App() {
     }
 
     const newQuest: Quest = {
-      ...normalizeQuestDuration(questDraft),
+      ...normalizeQuestDuration({ ...questDraft, isCustom: true }),
       id: crypto.randomUUID(),
       title,
-      type: questDraft.type,
+      appMode: activeMode,
+      type: isBrainworkout
+        ? questDraft.brainworkoutQuestType === "housework"
+          ? "housework"
+          : "study"
+        : questDraft.type,
       isCustom: true,
-      category: questDraft.type === "housework" ? "Hausarbeit" : questDraft.subject,
-      subject: questDraft.type === "housework" ? undefined : questDraft.subject,
+      category: isBrainworkout
+        ? brainworkoutAreaLabels[questDraft.area]
+        : questDraft.type === "housework"
+          ? "Hausarbeit"
+          : questDraft.subject,
+      area: isBrainworkout ? questDraft.area : undefined,
+      brainworkoutQuestType: isBrainworkout ? questDraft.brainworkoutQuestType : undefined,
+      dailyPlanTier: isBrainworkout ? questDraft.dailyPlanTier : undefined,
+      subject: isBrainworkout || questDraft.type === "housework" ? undefined : questDraft.subject,
       topic,
       note: questDraft.note.trim() || undefined,
       status: "open",
@@ -310,7 +489,11 @@ function App() {
     };
 
     setQuests((current) => [newQuest, ...current]);
-    setQuestDraft(emptyForm);
+    setQuestDraft({
+      ...emptyForm,
+      appMode: activeMode,
+      topic: isBrainworkout ? brainworkoutAreaLabels[questDraft.area] : emptyForm.topic,
+    });
     setToast("Neue Quest erstellt. Tippe sie an, um sie bewusst anzunehmen.");
     setQuestTab("open");
   }
@@ -776,6 +959,37 @@ function App() {
     setToast("Abgemeldet. Du nutzt die App lokal weiter.");
   }
 
+  function handleExportData() {
+    downloadExportFile(createAppExportData(quests, progress, appState));
+    setToast("Exportdatei erstellt.");
+  }
+
+  async function handleImportData(file: File) {
+    const confirmed = window.confirm(
+      "Import ersetzt die lokalen App-Daten durch die Daten aus der Datei. Erstelle vorher einen Export, wenn du den aktuellen Stand sichern willst. Jetzt importieren?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const imported = await parseAppExportFile(file);
+      setQuests(imported.quests);
+      setProgress(imported.progress);
+      setAppState({
+        ...imported.appState,
+        appDataVersion: imported.appDataVersion,
+      });
+      setActiveQuestId(null);
+      setSelectedQuest(null);
+      setActivePage("dashboard");
+      setToast("Import abgeschlossen. Die App nutzt jetzt die importierten Daten.");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Import fehlgeschlagen.");
+    }
+  }
+
   function renderQuestList(list: Quest[]) {
     if (list.length === 0) {
       return <p className="empty-state">In diesem Bereich gibt es gerade keine Quests.</p>;
@@ -848,10 +1062,12 @@ function App() {
             levelInfo={levelInfo}
             nextUnlock={nextUnlock}
             activeQuest={activeQuest}
-            acceptedCount={acceptedQuests.length}
+            acceptedCount={modeScopedAcceptedCount}
             subjects={progress.subjectPriorities}
             nextDailyGoal={nextDailyGoal}
             weeklyGoals={weeklyGoals}
+            currentWeeklyPlan={currentWeeklyPlan}
+            latestWeeklyReflection={latestWeeklyReflection}
             quests={quests}
             dailyQuickQuestions={dailyQuickQuestionsForToday}
             dailyQuickAnsweredCount={dailyQuickAnsweredCount}
@@ -866,6 +1082,7 @@ function App() {
               setQuestTab("daily");
             }}
             onSelectQuest={setSelectedQuest}
+            onCopyReflectionPrompt={handleCopyReflectionPrompt}
           />
         ) : null}
 
@@ -887,24 +1104,59 @@ function App() {
                 </label>
                 <label>
                   Questtyp
+                  {activeMode === "brainworkout" ? (
+                    <select
+                      value={questDraft.brainworkoutQuestType}
+                      onChange={(event) => {
+                        const brainworkoutQuestType = event.target.value as BrainworkoutQuestType;
+                        updateQuestDraft({
+                          brainworkoutQuestType,
+                          type: brainworkoutQuestType === "housework" ? "housework" : "study",
+                          taskType: brainworkoutQuestType === "housework" ? "anwendung" : questDraft.taskType,
+                          outputType: brainworkoutQuestType === "housework" ? "Stichpunkte" : questDraft.outputType,
+                        });
+                      }}
+                    >
+                      {brainworkoutQuestTypeOptions.map((type) => (
+                        <option key={type} value={type}>{brainworkoutQuestTypeLabels[type]}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={questDraft.type}
+                      onChange={(event) => {
+                        const type = event.target.value as QuestType;
+                        updateQuestDraft({
+                          type,
+                          topic: type === "housework" ? houseworkTopics[0] : subjectTopics[questDraft.subject][0],
+                          taskType: type === "housework" ? "anwendung" : questDraft.taskType,
+                          mode: type === "housework" ? "solo" : questDraft.mode,
+                          outputType: type === "housework" ? "Stichpunkte" : questDraft.outputType,
+                        });
+                      }}
+                    >
+                      <option value="study">Lernquest</option>
+                      <option value="housework">Hausarbeit</option>
+                    </select>
+                  )}
+                </label>
+                {activeMode === "brainworkout" ? (
+                <label>
+                  Bereich
                   <select
-                    value={questDraft.type}
+                    value={questDraft.area}
                     onChange={(event) => {
-                      const type = event.target.value as QuestType;
-                      updateQuestDraft({
-                        type,
-                        topic: type === "housework" ? houseworkTopics[0] : subjectTopics[questDraft.subject][0],
-                        taskType: type === "housework" ? "anwendung" : questDraft.taskType,
-                        mode: type === "housework" ? "solo" : questDraft.mode,
-                        outputType: type === "housework" ? "Stichpunkte" : questDraft.outputType,
-                      });
+                      const area = event.target.value as BrainworkoutAreaId;
+                      updateQuestDraft({ area, topic: brainworkoutAreaLabels[area] });
                     }}
                   >
-                    <option value="study">Lernquest</option>
-                    <option value="housework">Hausarbeit</option>
+                    {brainworkoutAreaOptions.map((area) => (
+                      <option key={area} value={area}>{brainworkoutAreaLabels[area]}</option>
+                    ))}
                   </select>
                 </label>
-                {questDraft.type === "study" ? (
+                ) : null}
+                {activeMode === "abi" && questDraft.type === "study" ? (
                 <label>
                   Fach
                   <select
@@ -921,7 +1173,7 @@ function App() {
                 </label>
                 ) : null}
                 <label>
-                  {questDraft.type === "housework" ? "Bereich" : "Thema / Unterbereich"}
+                  {activeMode === "brainworkout" ? "Thema / Fokus" : questDraft.type === "housework" ? "Bereich" : "Thema / Unterbereich"}
                   <select
                     value={questDraft.topic}
                     onChange={(event) => updateQuestDraft({ topic: event.target.value })}
@@ -931,7 +1183,7 @@ function App() {
                     ))}
                   </select>
                 </label>
-                {questDraft.type === "study" ? (
+                {activeMode === "abi" && questDraft.type === "study" ? (
                 <label>
                   Aufgabentyp
                   <select
@@ -944,7 +1196,7 @@ function App() {
                   </select>
                 </label>
                 ) : null}
-                {questDraft.type === "study" ? (
+                {activeMode === "abi" && questDraft.type === "study" ? (
                 <label>
                   Modus
                   <select
@@ -957,7 +1209,7 @@ function App() {
                   </select>
                 </label>
                 ) : null}
-                {questDraft.type === "study" ? (
+                {activeMode === "abi" && questDraft.type === "study" ? (
                 <label>
                   Output
                   <select
@@ -966,6 +1218,19 @@ function App() {
                   >
                     {outputTypeOptions.map((output) => (
                       <option key={output} value={output}>{output}</option>
+                    ))}
+                  </select>
+                </label>
+                ) : null}
+                {activeMode === "brainworkout" ? (
+                <label>
+                  Tagesstufe
+                  <select
+                    value={questDraft.dailyPlanTier}
+                    onChange={(event) => updateQuestDraft({ dailyPlanTier: event.target.value as DailyPlanTier })}
+                  >
+                    {dailyPlanTierOptions.map((tier) => (
+                      <option key={tier} value={tier}>{dailyPlanTierLabels[tier]}</option>
                     ))}
                   </select>
                 </label>
@@ -991,7 +1256,7 @@ function App() {
                       max="120"
                       step="5"
                       value={questDraft.durationMinutes}
-                      onChange={(event) => setQuestDraft({ ...questDraft, durationMinutes: Number(event.target.value) })}
+                      onChange={(event) => updateQuestDraft({ durationMinutes: Number(event.target.value) })}
                     />
                     <strong>{questDraft.durationMinutes} Min</strong>
                   </div>
@@ -1003,7 +1268,7 @@ function App() {
                         }`}
                         key={option.minutes}
                         type="button"
-                        onClick={() => setQuestDraft({ ...questDraft, durationMinutes: option.minutes })}
+                        onClick={() => updateQuestDraft({ durationMinutes: option.minutes })}
                       >
                         {option.label} {option.minutes === draftRecommendedDuration ? "empfohlen" : ""}
                       </button>
@@ -1040,9 +1305,10 @@ function App() {
             <section className="content-card">
               <div className="section-heading">
                 <span className="eyebrow">Quest-Liste</span>
-                <h2>Lernquests, Hausarbeit und Daily Quick Quests</h2>
+                <h2>{activeMode === "brainworkout" ? "Brainworkout-Aufgaben" : "Lernquests, Hausarbeit und Daily Quick Quests"}</h2>
               </div>
               <div className="quest-filter-bar" aria-label="Quest-Filter">
+                {activeMode === "abi" ? (
                 <label>
                   Fach
                   <select value={subjectFilter} onChange={(event) => setSubjectFilter(event.target.value as "all" | Subject)}>
@@ -1052,8 +1318,27 @@ function App() {
                     ))}
                   </select>
                 </label>
+                ) : (
                 <label>
-                  Questtyp
+                  Bereich
+                  <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value as "all" | BrainworkoutAreaId)}>
+                    <option value="all">Alle Bereiche</option>
+                    {brainworkoutAreaOptions.map((area) => (
+                      <option key={area} value={area}>{brainworkoutAreaLabels[area]}</option>
+                    ))}
+                  </select>
+                </label>
+                )}
+                <label>
+                  {activeMode === "brainworkout" ? "Brainworkout-Typ" : "Questtyp"}
+                  {activeMode === "brainworkout" ? (
+                  <select value={brainworkoutTypeFilter} onChange={(event) => setBrainworkoutTypeFilter(event.target.value as "all" | BrainworkoutQuestType)}>
+                    <option value="all">Alle Typen</option>
+                    {brainworkoutQuestTypeOptions.map((type) => (
+                      <option key={type} value={type}>{brainworkoutQuestTypeLabels[type]}</option>
+                    ))}
+                  </select>
+                  ) : (
                   <select
                     value={questTypeFilter}
                     onChange={(event) => {
@@ -1068,7 +1353,19 @@ function App() {
                     <option value="daily_quick">Daily Quick Quests</option>
                     <option value="housework">Hausarbeit</option>
                   </select>
+                  )}
                 </label>
+                {activeMode === "brainworkout" ? (
+                <label>
+                  Tagesstufe
+                  <select value={dailyPlanTierFilter} onChange={(event) => setDailyPlanTierFilter(event.target.value as "all" | DailyPlanTier)}>
+                    <option value="all">Alle Stufen</option>
+                    {dailyPlanTierOptions.map((tier) => (
+                      <option key={tier} value={tier}>{dailyPlanTierLabels[tier]}</option>
+                    ))}
+                  </select>
+                </label>
+                ) : null}
                 <label>
                   Schwierigkeit
                   <select value={difficultyFilter} onChange={(event) => setDifficultyFilter(event.target.value as "all" | Difficulty)}>
@@ -1091,15 +1388,17 @@ function App() {
                 </label>
               </div>
               <div className="tabs" role="tablist" aria-label="Quest-Filter">
+                {activeMode === "abi" ? (
                 <button className={questTab === "daily" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("daily")}>Daily</button>
+                ) : null}
                 <button className={questTab === "open" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("open")}>Offen</button>
                 <button className={questTab === "accepted" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("accepted")}>Angenommen</button>
                 <button className={questTab === "completed" ? "tab tab--active" : "tab"} type="button" onClick={() => setQuestTab("completed")}>Abgeschlossen</button>
               </div>
-              {questTab === "daily" || questTypeFilter === "daily_quick" ? (
+              {activeMode === "abi" && (questTab === "daily" || questTypeFilter === "daily_quick") ? (
                 <div className="daily-quick-grid">{renderDailyQuickList(filteredDailyQuickQuestions)}</div>
               ) : null}
-              {questTypeFilter !== "daily_quick" && questTab !== "daily" ? (
+              {(activeMode === "brainworkout" || questTypeFilter !== "daily_quick") && questTab !== "daily" ? (
                 <div className="quest-list">
                   {questTab === "open" ? renderQuestList(openQuestList) : null}
                   {questTab === "accepted" ? renderQuestList(acceptedQuestList) : null}
@@ -1203,28 +1502,26 @@ function App() {
             </div>
 
             {progressTab === "overview" ? (
-              <>
-                <section className="dashboard-summary-grid">
-                  <LevelProgressCard levelInfo={levelInfo} />
-                  <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
-                  <DashboardCard label="Fokus Woche" value={`${focusSummary.weekMinutes} Min`} detail={`${focusSummary.totalMinutes} Min gesamt`} />
-                </section>
-                <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
-                {nextStreakReward ? (
-                  <section className="content-card">
-                    <div className="section-heading">
-                      <span className="eyebrow">Nächste Streak-Belohnung</span>
-                      <h2>{nextStreakReward.title}</h2>
-                    </div>
-                    <p>{nextStreakReward.description}</p>
-                    <ProgressBar
-                      value={Math.min(streakState.longestStreak, nextStreakReward.milestoneDays)}
-                      max={nextStreakReward.milestoneDays}
-                      label="Streak-Fortschritt"
-                    />
-                  </section>
-                ) : null}
-              </>
+              activeMode === "brainworkout" ? (
+                <BrainworkoutProgressView
+                  appState={appState}
+                  levelInfo={levelInfo}
+                  quests={quests}
+                  sessions={progress.sessionHistory}
+                  focusSummary={focusSummary}
+                  streakState={streakState}
+                  onCopyReflectionPrompt={handleCopyReflectionPrompt}
+                />
+              ) : (
+                <AbiProgressView
+                  appState={appState}
+                  levelInfo={levelInfo}
+                  quests={quests}
+                  sessions={progress.sessionHistory}
+                  focusSummary={focusSummary}
+                  streakState={streakState}
+                />
+              )
             ) : null}
 
             {progressTab === "daily" ? (
@@ -1277,8 +1574,8 @@ function App() {
 
             {progressTab === "calendar" ? <ActivityCalendar progress={progress} /> : null}
 
-            {progressTab === "stats" ? <StatsPanel stats={statsSummary} /> : null}
-            {progressTab === "history" ? <SessionHistory sessions={progress.sessionHistory} /> : null}
+            {progressTab === "stats" ? <StatsPanel stats={modeStatsSummary} /> : null}
+            {progressTab === "history" ? <SessionHistory sessions={modeSessions} /> : null}
             {progressTab === "unlocks" ? (
               <section className="two-column-page">
                 <UnlockPreviewCard nextUnlock={nextUnlock} levelInfo={levelInfo} />
@@ -1305,8 +1602,15 @@ function App() {
             dailyGoals={dailyGoals}
             weeklyGoals={weeklyGoals}
             focusSummary={focusSummary}
+            quests={getModeScopedQuests(quests, "brainworkout")}
+            currentWeeklyPlan={currentWeeklyPlan}
+            latestWeeklyReflection={latestWeeklyReflection}
             onClaimDaily={(goalId) => handleClaimGoal("daily", goalId)}
             onClaimWeekly={(goalId) => handleClaimGoal("weekly", goalId)}
+            onSelectQuest={setSelectedQuest}
+            onSaveWeeklyPlan={handleSaveWeeklyPlan}
+            onSaveWeeklyReflection={handleSaveWeeklyReflection}
+            onCopyReflectionPrompt={handleCopyReflectionPrompt}
           />
         ) : null}
 
@@ -1324,17 +1628,20 @@ function App() {
             </section>
             <div className="two-column-page">
               <AccountPanel account={account} onLogin={handleLogin} onLogout={handleLogout} onSync={handleManualSync} />
-              <SubjectPriorityCard subjects={progress.subjectPriorities} />
+              <DataManagementPanel account={account} onExport={handleExportData} onImport={handleImportData} />
             </div>
-            <SettingsPanel
-              subjects={progress.subjectPriorities}
-              soundEnabled={progress.soundEnabled}
-              onChangePriority={handleChangeSubjectPriority}
-              onToggleSound={(enabled) => {
-                setProgress((current) => ({ ...current, soundEnabled: enabled }));
-                setToast(enabled ? "Timer-Sound aktiviert." : "Timer-Sound deaktiviert.");
-              }}
-            />
+            <div className="two-column-page">
+              <SubjectPriorityCard subjects={progress.subjectPriorities} />
+              <SettingsPanel
+                subjects={progress.subjectPriorities}
+                soundEnabled={progress.soundEnabled}
+                onChangePriority={handleChangeSubjectPriority}
+                onToggleSound={(enabled) => {
+                  setProgress((current) => ({ ...current, soundEnabled: enabled }));
+                  setToast(enabled ? "Timer-Sound aktiviert." : "Timer-Sound deaktiviert.");
+                }}
+              />
+            </div>
           </div>
         ) : null}
       </main>

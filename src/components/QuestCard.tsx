@@ -1,7 +1,9 @@
 import { calculateQuestReward } from "../utils/gameRules";
 import type { Quest } from "../types";
+import { brainworkoutAreaLabels, brainworkoutQuestTypeLabels, dailyPlanTierLabels } from "../data/brainworkoutQuestPool";
 import { inferQuestSubject } from "../utils/subjects";
 import { modeLabels, taskTypeLabels } from "../data/questContent";
+import { getQuestAppMode } from "../utils/modeScopedQuestSelectors";
 import { QuestRewardPreview } from "./QuestRewardPreview";
 import { QuestStatusBadge } from "./QuestStatusBadge";
 
@@ -30,6 +32,10 @@ interface QuestCardProps {
 export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, onDurationChange, gems }: QuestCardProps) {
   const reward = calculateQuestReward(quest);
   const subject = inferQuestSubject(quest);
+  const questAppMode = getQuestAppMode(quest);
+  const isBrainworkout = questAppMode === "brainworkout";
+  const areaLabel = quest.area ? brainworkoutAreaLabels[quest.area] : quest.category;
+  const isExternalApp = quest.brainworkoutQuestType === "chess_app" || quest.brainworkoutQuestType === "driving_app";
   const canOpenAcceptance = quest.status === "open";
   const canStart = quest.status === "accepted";
   const canReopen = quest.status === "cancelled";
@@ -48,13 +54,23 @@ export function QuestCard({ quest, onSelect, onStart, onReopen, onReroll, onDura
             <span className={`difficulty-mark difficulty-mark--${quest.difficulty}`}>{difficultyLabels[quest.difficulty]}</span>
             <QuestStatusBadge status={quest.status} />
           </div>
-          <span className="eyebrow">{subject ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}` : `${quest.category}${quest.topic ? ` / ${quest.topic}` : ""}`}</span>
+          <span className="eyebrow">
+            {isBrainworkout
+              ? `${areaLabel}${quest.topic ? ` / ${quest.topic}` : ""}`
+              : subject
+                ? `${subject}${quest.topic ? ` / ${quest.topic}` : ""}`
+                : `${quest.category}${quest.topic ? ` / ${quest.topic}` : ""}`}
+          </span>
           <h3>{quest.title}</h3>
           <div className="quest-meta-badges">
+            <span>{isBrainworkout ? "Brainworkout" : "Abi"}</span>
             <span>{questTypeLabels[quest.type]}</span>
-            {quest.taskType ? <span>{taskTypeLabels[quest.taskType]}</span> : null}
+            {isBrainworkout && quest.brainworkoutQuestType ? <span>{brainworkoutQuestTypeLabels[quest.brainworkoutQuestType]}</span> : null}
+            {quest.taskType && !isBrainworkout ? <span>{taskTypeLabels[quest.taskType]}</span> : null}
             {quest.mode ? <span>{modeLabels[quest.mode]}</span> : null}
             {quest.outputType ? <span>{quest.outputType}</span> : null}
+            {quest.dailyPlanTier ? <span>{dailyPlanTierLabels[quest.dailyPlanTier]}</span> : null}
+            {isExternalApp ? <span>Externe App</span> : null}
           </div>
           {quest.note ? <p>{quest.note}</p> : null}
           {quest.status === "accepted" ? <small>Eine angenommene Quest ist der erste Schritt.</small> : null}

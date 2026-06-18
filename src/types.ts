@@ -25,6 +25,57 @@ export type BrainworkoutAreaId =
   | "driving_license"
   | "housework_life";
 
+export type BrainworkoutQuestType =
+  | "math_foundations"
+  | "physics_understanding"
+  | "poetry_language"
+  | "logic_puzzle"
+  | "chess_app"
+  | "driving_app"
+  | "weekly_reflection"
+  | "housework";
+
+export type DailyPlanTier = "minimum" | "normal" | "strong";
+
+export type WeeklyEnergyLevel = "low" | "medium" | "high";
+
+export type WeeklyPressureLevel = "low" | "medium" | "high";
+
+export type WeeklyPlanStatus = "draft" | "active" | "completed";
+
+export type BrainworkoutReflectionMood = "good" | "mixed" | "hard";
+
+export interface BrainworkoutWeeklyPlan {
+  weekId: string;
+  startDate: string;
+  endDate: string;
+  availableTimeEstimate: "under_2h" | "2_4h" | "4_6h" | "over_6h";
+  fixedAppointmentsNote: string;
+  mainFocusArea: BrainworkoutAreaId;
+  energyLevel: WeeklyEnergyLevel;
+  obligations: string[];
+  pressureLevel: WeeklyPressureLevel;
+  concreteGoal: string;
+  status: WeeklyPlanStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrainworkoutWeeklyReflection {
+  id: string;
+  weekId: string;
+  completedAt: string;
+  accomplished: string;
+  tooMuch: string;
+  understood: string;
+  enjoyable: string;
+  simplifyNextWeek: string;
+  nextWeekGoal: string;
+  mood?: BrainworkoutReflectionMood;
+  energyAfterWeek?: WeeklyEnergyLevel;
+  notes?: string;
+}
+
 export type AccountMode = "local" | "account";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -76,6 +127,8 @@ export interface BrainworkoutModeState extends ModeProgressState {
   areas: BrainworkoutAreaId[];
   areaProgress: Record<BrainworkoutAreaId, number>;
   weeklyReflectionIds: string[];
+  weeklyPlans: BrainworkoutWeeklyPlan[];
+  weeklyReflections: BrainworkoutWeeklyReflection[];
 }
 
 export interface AppState {
@@ -124,9 +177,14 @@ export interface SubjectPrioritySetting {
 
 export interface Quest {
   id: string;
+  appMode?: AppMode;
   type: QuestType;
   title: string;
   category: string;
+  description?: string;
+  area?: BrainworkoutAreaId;
+  brainworkoutQuestType?: BrainworkoutQuestType;
+  dailyPlanTier?: DailyPlanTier;
   subject?: Subject;
   topic?: string;
   taskType?: QuestTaskType;
@@ -332,7 +390,12 @@ export interface WeeklyGoalProgress {
 export interface SessionHistoryEntry {
   id: string;
   questId: string;
+  appMode?: AppMode;
   questType?: QuestType;
+  subject?: Subject;
+  area?: BrainworkoutAreaId;
+  brainworkoutQuestType?: BrainworkoutQuestType;
+  dailyPlanTier?: DailyPlanTier;
   date: string;
   dateKey: string;
   weekKey: string;

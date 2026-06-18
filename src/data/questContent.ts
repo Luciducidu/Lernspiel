@@ -7,6 +7,7 @@ import type {
   QuestTaskType,
   Subject,
 } from "../types";
+import { brainworkoutQuestTemplates, type BrainworkoutQuestTemplate } from "./brainworkoutQuestPool";
 import { normalizeQuestDuration } from "../utils/durations";
 
 export interface StudyQuestTemplate {
@@ -22,6 +23,8 @@ export interface StudyQuestTemplate {
   difficulty: Difficulty;
   note: string;
 }
+
+export type AnyQuestTemplate = StudyQuestTemplate | BrainworkoutQuestTemplate;
 
 export const houseworkTopics = ["Hausarbeit", "Alltag", "Ordnung"] as const;
 
@@ -225,6 +228,7 @@ export const houseworkQuestTemplates: StudyQuestTemplate[] = [
 ];
 
 export const questTemplates: StudyQuestTemplate[] = [...studyQuestTemplates, ...houseworkQuestTemplates];
+export const allQuestTemplates: AnyQuestTemplate[] = [...studyQuestTemplates, ...brainworkoutQuestTemplates];
 
 function q(
   id: string,
@@ -283,10 +287,27 @@ export const dailyQuickQuestions: MultipleChoiceQuestion[] = [
   q("ma-10", "Mathe", "analytische Geometrie", "Was sind windschiefe Geraden?", ["Nicht parallel und ohne Schnittpunkt im Raum", "Immer identisch", "Immer senkrecht schneidend", "Geraden in einer Ebene"], 0, "Windschiefe Geraden gibt es nur im Raum."),
 ];
 
-export function createQuestFromTemplate(template: StudyQuestTemplate, index: number): Quest {
+function isBrainworkoutTemplate(template: AnyQuestTemplate): template is BrainworkoutQuestTemplate {
+  return "brainworkoutQuestType" in template;
+}
+
+export function createQuestFromTemplate(template: AnyQuestTemplate, index: number): Quest {
+  if (isBrainworkoutTemplate(template)) {
+    return normalizeQuestDuration({
+      ...template,
+      id: `brainworkout-quest-seed-${index + 1}`,
+      appMode: "brainworkout",
+      type: template.brainworkoutQuestType === "housework" ? "housework" : "study",
+      subject: undefined,
+      status: "open",
+      createdAt: new Date().toISOString(),
+    });
+  }
+
   return normalizeQuestDuration({
     ...template,
     id: `${template.type === "housework" ? "housework" : "abi"}-quest-seed-${index + 1}`,
+    appMode: template.type === "housework" ? "brainworkout" : "abi",
     status: "open",
     createdAt: new Date().toISOString(),
   });

@@ -13,7 +13,7 @@ export function SettingsPanel({ subjects, soundEnabled, onChangePriority, onTogg
     <section className="settings-panel">
       <div className="section-heading">
         <span className="eyebrow">Einstellungen</span>
-        <h2>Fach-Priorisierung</h2>
+        <h2>Sound und Fach-Priorisierung</h2>
       </div>
       <p className="section-copy">
         Lege fest, welche Fächer aktuell im Vordergrund stehen. Die Einstellung wird gespeichert und im Dashboard sichtbar,
