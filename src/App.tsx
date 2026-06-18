@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { ActivityCalendar } from "./components/ActivityCalendar";
 import { AccountPanel } from "./components/AccountPanel";
@@ -13,6 +13,7 @@ import { DailyGoalCard } from "./components/DailyGoalCard";
 import { GemActionPanel } from "./components/GemActionPanel";
 import { LevelProgressCard } from "./components/LevelProgressCard";
 import { LuckyChestModal } from "./components/LuckyChestModal";
+import { ModeSwitcher } from "./components/ModeSwitcher";
 import { ProgressBar } from "./components/ProgressBar";
 import { PurchaseFeedbackModal } from "./components/PurchaseFeedbackModal";
 import { QuestAcceptModal } from "./components/QuestAcceptModal";
@@ -30,9 +31,11 @@ import { UnlockPreviewCard } from "./components/UnlockPreviewCard";
 import { chestRewards, gemSpecialActions } from "./data/balancing";
 import { houseworkTopics, modeOptions, outputTypeOptions, subjectOptions, subjectTopics, taskTypeOptions } from "./data/questContent";
 import { useAppDerivedState } from "./hooks/useAppDerivedState";
+import { useAppMode } from "./hooks/useAppMode";
 import { usePersistentState } from "./hooks/usePersistentState";
 import type {
   AppPage,
+  AppMode,
   ChestReward,
   ChestTier,
   CompletionSummary,
@@ -70,7 +73,7 @@ import {
   spendGems,
   todayKey,
 } from "./utils/gameRules";
-import { loadAccount, loadProgress, loadQuests, saveAccount, saveProgress, saveQuests } from "./utils/storage";
+import { loadAccount, loadAppState, loadProgress, loadQuests, saveAccount, saveAppState, saveProgress, saveQuests } from "./utils/storage";
 import { getSubjectFocusText, inferQuestSubject } from "./utils/subjects";
 import {
   customQuestDurationOptions,
@@ -98,6 +101,7 @@ function App() {
   const [quests, setQuests] = usePersistentState<Quest[]>(loadQuests, saveQuests);
   const [progress, setProgress] = usePersistentState(loadProgress, saveProgress);
   const [account, setAccount] = usePersistentState(loadAccount, saveAccount);
+  const [appState, setAppState] = usePersistentState(loadAppState, saveAppState);
   const [activePage, setActivePage] = useState<AppPage>("dashboard");
   const [questTab, setQuestTab] = useState<"daily" | "open" | "accepted" | "completed">("daily");
   const [progressTab, setProgressTab] = useState<
@@ -116,6 +120,7 @@ function App() {
   const [celebration, setCelebration] = useState<CelebrationToastData | null>(null);
   const [purchaseResult, setPurchaseResult] = useState<PurchaseResult | null>(null);
   const [toast, setToast] = useState<string>("Bereit für deine nächste Quest.");
+  const { activeMode, modeLabel } = useAppMode(appState);
 
   const {
     levelInfo,
@@ -171,6 +176,52 @@ function App() {
   const standardRewardItems = standardItems.filter((item) => !item.isLuckyChest);
   const premiumRewardItems = premiumItems.filter((item) => !item.isLuckyChest);
 
+  useEffect(() => {
+    setAppState((current) => {
+      const global = {
+        coins: progress.coins,
+        gems: progress.gems,
+        purchasedRewards: progress.purchasedRewards,
+        rewardInventory: progress.rewardInventory,
+        streak: progress.streak,
+        longestStreak: progress.longestStreak,
+        soundEnabled: progress.soundEnabled,
+      };
+
+      if (current.activeMode === "brainworkout") {
+        return {
+          ...current,
+          global,
+          brainworkout: {
+            ...current.brainworkout,
+            xp: progress.xp,
+            level: getLevelInfo(progress.xp).level,
+            questIds: quests.filter((quest) => quest.type === "housework").map((quest) => quest.id),
+            sessionHistoryIds: progress.sessionHistory
+              .filter((session) => session.questType === "housework")
+              .map((session) => session.id),
+          },
+        };
+      }
+
+      return {
+        ...current,
+        global,
+        abi: {
+          ...current.abi,
+          xp: progress.xp,
+          level: getLevelInfo(progress.xp).level,
+          questIds: quests.filter((quest) => quest.type !== "housework").map((quest) => quest.id),
+          sessionHistoryIds: progress.sessionHistory
+            .filter((session) => session.questType !== "housework")
+            .map((session) => session.id),
+          dailyStateKeys: Object.keys(progress.dailyGoalProgress),
+          weeklyStateKeys: Object.keys(progress.weeklyGoalProgress),
+        },
+      };
+    });
+  }, [activeMode, progress, quests, setAppState]);
+
   function updateQuest(questId: string, update: Partial<Quest>) {
     setQuests((current) => current.map((quest) => (quest.id === questId ? { ...quest, ...update } : quest)));
   }
@@ -187,6 +238,36 @@ function App() {
 
   function showCelebration(data: Omit<CelebrationToastData, "id">) {
     setCelebration({ ...data, id: crypto.randomUUID() });
+  }
+
+  function handleChangeMode(mode: AppMode) {
+    if (mode === activeMode) {
+      return;
+    }
+
+    const target = appState[mode];
+    setAppState((current) => {
+      const currentLevel = getLevelInfo(progress.xp).level;
+      return current.activeMode === "abi"
+        ? {
+            ...current,
+            activeMode: mode,
+            abi: { ...current.abi, xp: progress.xp, level: currentLevel },
+          }
+        : {
+            ...current,
+            activeMode: mode,
+            brainworkout: { ...current.brainworkout, xp: progress.xp, level: currentLevel },
+          };
+    });
+    setProgress((current) => ({
+      ...current,
+      xp: target.xp,
+      level: getLevelInfo(target.xp).level,
+    }));
+    setQuestTypeFilter("all");
+    setSubjectFilter("all");
+    setToast(`${mode === "abi" ? "Abi-Modus" : "Brainworkout-Modus"} aktiviert. Deine Daten bleiben erhalten.`);
   }
 
   function getClaimedGoalDiff(before: typeof progress, after: typeof progress): string[] {
@@ -632,7 +713,7 @@ function App() {
       const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
       setQuests(merged.quests);
       setProgress(merged.progress);
-      await saveRemoteBundle(createSyncBundle(baseAccount, merged.quests, merged.progress));
+      await saveRemoteBundle(createSyncBundle(baseAccount, merged.quests, merged.progress, appState));
       setAccount({
         mode: "account",
         username,
@@ -668,7 +749,7 @@ function App() {
       const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
       setQuests(merged.quests);
       setProgress(merged.progress);
-      await saveRemoteBundle(createSyncBundle(account, merged.quests, merged.progress));
+      await saveRemoteBundle(createSyncBundle(account, merged.quests, merged.progress, appState));
       setAccount((current) => ({
         ...current,
         lastSyncedAt: new Date().toISOString(),
@@ -744,9 +825,10 @@ function App() {
       <main className="page-shell">
         <header className="topbar">
           <div>
-            <span className="eyebrow">LernQuest</span>
+            <span className="eyebrow">LernQuest · {modeLabel}</span>
             <h1>{pageTitle[activePage]}</h1>
           </div>
+          <ModeSwitcher activeMode={activeMode} onChange={handleChangeMode} />
           <div className="topbar-currencies" aria-label="Währungen">
             <span>{progress.coins} Coins</span>
             <span>{progress.xp} XP</span>
@@ -1240,6 +1322,16 @@ function App() {
 
         {activePage === "settings" ? (
           <div className="page-stack">
+            <section className="content-card mode-settings-card">
+              <div className="section-heading">
+                <span className="eyebrow">App-Modus</span>
+                <h2>{modeLabel}</h2>
+              </div>
+              <p>
+                Abi und Brainworkout nutzen dieselbe App, aber eigene XP- und Levelstände. Coins, Gems, Shop, Inventar und Konto bleiben gemeinsam.
+              </p>
+              <ModeSwitcher activeMode={activeMode} onChange={handleChangeMode} />
+            </section>
             <div className="two-column-page">
               <AccountPanel account={account} onLogin={handleLogin} onLogout={handleLogout} onSync={handleManualSync} />
               <SubjectPriorityCard subjects={progress.subjectPriorities} />

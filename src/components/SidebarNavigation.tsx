@@ -19,7 +19,7 @@ export function SidebarNavigation({ activePage, onNavigate }: SidebarNavigationP
     <aside className="sidebar-navigation" aria-label="Hauptnavigation">
       <div className="brand-block">
         <strong>LernQuest</strong>
-        <span>Abi-Vorbereitung</span>
+        <span>Abi und Brainworkout</span>
       </div>
       <nav className="nav-list">
         {navItems.map((item) => (

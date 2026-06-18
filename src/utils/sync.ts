@@ -1,4 +1,4 @@
-import type { AccountState, Quest, SyncBundle, UserProgress } from "../types";
+import type { AccountState, AppState, Quest, SyncBundle, UserProgress } from "../types";
 import { appDataVersion } from "./storage";
 
 const syncApiUrl = import.meta.env.VITE_SYNC_API_URL as string | undefined;
@@ -28,7 +28,7 @@ function localAccountKey(username: string): string {
   return `${localAccountPrefix}${normalizeUsername(username)}`;
 }
 
-export function createSyncBundle(account: AccountState, quests: Quest[], progress: UserProgress): SyncBundle {
+export function createSyncBundle(account: AccountState, quests: Quest[], progress: UserProgress, appState?: AppState): SyncBundle {
   if (!account.username || !account.passphraseHash) {
     throw new Error("Account nicht vollständig.");
   }
@@ -40,6 +40,7 @@ export function createSyncBundle(account: AccountState, quests: Quest[], progres
     updatedAt: new Date().toISOString(),
     quests,
     progress,
+    appState,
   };
 }
 

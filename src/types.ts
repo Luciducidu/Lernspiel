@@ -14,6 +14,17 @@ export type RewardStatus = "available" | "active" | "used";
 
 export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "settings";
 
+export type AppMode = "abi" | "brainworkout";
+
+export type BrainworkoutAreaId =
+  | "math_first_semester"
+  | "physics_first_semester"
+  | "language_poetry_slam"
+  | "logic_puzzles"
+  | "chess_external"
+  | "driving_license"
+  | "housework_life";
+
 export type AccountMode = "local" | "account";
 
 export type SyncStatus = "idle" | "syncing" | "success" | "error" | "offline";
@@ -34,6 +45,45 @@ export interface SyncBundle {
   updatedAt: string;
   quests: Quest[];
   progress: UserProgress;
+  appState?: AppState;
+}
+
+export interface AppGlobalState {
+  coins: number;
+  gems: number;
+  purchasedRewards: string[];
+  rewardInventory: RewardInventoryItem[];
+  streak: number;
+  longestStreak: number;
+  soundEnabled: boolean;
+}
+
+export interface ModeProgressState {
+  xp: number;
+  level: number;
+  questIds: string[];
+  sessionHistoryIds: string[];
+  dailyStateKeys: string[];
+  weeklyStateKeys: string[];
+}
+
+export interface AbiModeState extends ModeProgressState {
+  subjects: Subject[];
+  topicProgress: Record<string, number>;
+}
+
+export interface BrainworkoutModeState extends ModeProgressState {
+  areas: BrainworkoutAreaId[];
+  areaProgress: Record<BrainworkoutAreaId, number>;
+  weeklyReflectionIds: string[];
+}
+
+export interface AppState {
+  appDataVersion: number;
+  activeMode: AppMode;
+  global: AppGlobalState;
+  abi: AbiModeState;
+  brainworkout: BrainworkoutModeState;
 }
 
 export type SubjectId = "pb" | "mathe" | "deutsch" | "physik";
