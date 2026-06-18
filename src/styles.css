@@ -395,6 +395,125 @@ button:disabled {
   gap: 22px;
 }
 
+.dashboard-feature-grid,
+.planning-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.15fr) minmax(300px, 1fr) minmax(300px, 0.9fr);
+  gap: 22px;
+}
+
+.dashboard-priority-grid--abi {
+  grid-template-columns: minmax(300px, 0.85fr) minmax(420px, 1.3fr) minmax(320px, 0.95fr);
+}
+
+.recommended-quest-card,
+.day-tier-card,
+.weekly-focus-card,
+.area-progress-card,
+.external-task-card,
+.prep-block-card,
+.mode-progress-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.recommended-quest-card,
+.day-tier-card,
+.weekly-focus-card,
+.area-progress-card,
+.external-task-card,
+.prep-block-card,
+.mode-progress-preview {
+  padding: 20px;
+}
+
+.recommended-quest-card,
+.day-tier-card,
+.area-progress-card,
+.external-task-card,
+.prep-block-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.recommended-quest-card p,
+.day-tier-card p,
+.weekly-focus-card p,
+.external-task-card p,
+.prep-block-card p,
+.reflection-hint-card p,
+.planning-lead-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.dashboard-hero--brainworkout {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.8)),
+    url("https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1400&q=80") center / cover;
+}
+
+.daily-plan-grid,
+.area-progress-grid,
+.external-task-grid,
+.prep-block-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.area-progress-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.external-task-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.day-tier-card--minimum {
+  background: #fbfcfa;
+}
+
+.day-tier-card--normal {
+  background: var(--primary-soft);
+}
+
+.day-tier-card--strong {
+  background: var(--reward-soft);
+}
+
+.day-tier-card--reached {
+  border-color: rgba(47, 123, 79, 0.35);
+}
+
+.weekly-focus-card {
+  display: grid;
+  gap: 14px;
+}
+
+.weekly-focus-list {
+  display: grid;
+  gap: 12px;
+}
+
+.weekly-focus-row {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card-soft);
+}
+
+.mode-progress-preview {
+  display: grid;
+  gap: 16px;
+}
+
 .dashboard-summary-grid,
 .shop-grid,
 .special-grid,
@@ -2230,6 +2349,15 @@ button:disabled {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .dashboard-feature-grid,
+  .planning-grid {
+    grid-template-columns: minmax(420px, 1.15fr) minmax(360px, 1fr) minmax(320px, 0.9fr);
+  }
+
+  .area-progress-grid {
+    grid-template-columns: repeat(4, minmax(240px, 1fr));
+  }
+
   .quest-list {
     grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
   }
@@ -2251,6 +2379,11 @@ button:disabled {
 
   .daily-quick-grid--compact {
     grid-template-columns: repeat(3, minmax(340px, 1fr));
+  }
+
+  .dashboard-feature-grid,
+  .planning-grid {
+    grid-template-columns: minmax(520px, 1.25fr) repeat(2, minmax(360px, 1fr));
   }
 }
 
@@ -2295,6 +2428,12 @@ button:disabled {
 
   .dashboard-hero,
   .dashboard-priority-grid,
+  .dashboard-feature-grid,
+  .planning-grid,
+  .daily-plan-grid,
+  .area-progress-grid,
+  .external-task-grid,
+  .prep-block-grid,
   .two-column-page {
     grid-template-columns: 1fr;
   }
@@ -2340,6 +2479,12 @@ button:disabled {
   .streak-reward-grid,
   .daily-quick-grid,
   .daily-quick-grid--compact,
+  .dashboard-feature-grid,
+  .planning-grid,
+  .daily-plan-grid,
+  .area-progress-grid,
+  .external-task-grid,
+  .prep-block-grid,
   .shop-grid,
   .special-grid,
   .stats-grid,

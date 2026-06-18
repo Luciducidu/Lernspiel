@@ -6,6 +6,7 @@ const navItems: Array<{ page: AppPage; label: string; mobileLabel: string; hint:
   { page: "focus", label: "Fokusmodus", mobileLabel: "Fokus", hint: "Lernen" },
   { page: "shop", label: "Shop", mobileLabel: "Shop", hint: "Belohnungen" },
   { page: "progress", label: "Fortschritt", mobileLabel: "Rewards", hint: "Auswertung" },
+  { page: "planning", label: "Planung", mobileLabel: "Planung", hint: "Woche" },
   { page: "settings", label: "Einstellungen", mobileLabel: "Mehr", hint: "Faecher" },
 ];
 

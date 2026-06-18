@@ -12,7 +12,7 @@ export type RewardCurrency = "coins" | "gems";
 
 export type RewardStatus = "available" | "active" | "used";
 
-export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "settings";
+export type AppPage = "dashboard" | "quests" | "focus" | "shop" | "progress" | "planning" | "settings";
 
 export type AppMode = "abi" | "brainworkout";
 

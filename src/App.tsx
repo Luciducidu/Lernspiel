@@ -1,9 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
-import { ActiveQuestCard } from "./components/ActiveQuestCard";
 import { ActivityCalendar } from "./components/ActivityCalendar";
 import { AccountPanel } from "./components/AccountPanel";
 import { DashboardCard } from "./components/DashboardCard";
-import { DashboardHero } from "./components/DashboardHero";
+import { DashboardPage } from "./components/DashboardPage";
 import { CelebrationToast, type CelebrationToastData } from "./components/CelebrationToast";
 import { ChestContentsModal } from "./components/ChestContentsModal";
 import { ClaimableRewardsPanel } from "./components/ClaimableRewardsPanel";
@@ -13,7 +12,9 @@ import { DailyGoalCard } from "./components/DailyGoalCard";
 import { GemActionPanel } from "./components/GemActionPanel";
 import { LevelProgressCard } from "./components/LevelProgressCard";
 import { LuckyChestModal } from "./components/LuckyChestModal";
+import { ModeAwareProgressPreview } from "./components/ModeAwareProgressPreview";
 import { ModeSwitcher } from "./components/ModeSwitcher";
+import { PlanningPage } from "./components/PlanningPage";
 import { ProgressBar } from "./components/ProgressBar";
 import { PurchaseFeedbackModal } from "./components/PurchaseFeedbackModal";
 import { QuestAcceptModal } from "./components/QuestAcceptModal";
@@ -786,10 +787,10 @@ function App() {
         quest={quest}
         onSelect={setSelectedQuest}
         onStart={handleStartQuest}
-      onReopen={handleReopenQuest}
-      onReroll={handleRerollQuest}
-      onDurationChange={updateQuestDuration}
-      gems={progress.gems}
+        onReopen={handleReopenQuest}
+        onReroll={handleRerollQuest}
+        onDurationChange={updateQuestDuration}
+        gems={progress.gems}
       />
     ));
   }
@@ -816,6 +817,7 @@ function App() {
     focus: "Fokusmodus",
     shop: "Shop",
     progress: "Fortschritt",
+    planning: "Planung",
     settings: "Einstellungen",
   };
 
@@ -839,62 +841,32 @@ function App() {
         <p className="status-line">{toast}</p>
 
         {activePage === "dashboard" ? (
-          <div className="page-stack">
-            <DashboardHero
-              focusText={subjectFocus.focus}
-              levelInfo={levelInfo}
-              nextUnlock={nextUnlock}
-              onNavigate={setActivePage}
-            />
-            <section className="dashboard-priority-grid">
-              <ActiveQuestCard activeQuest={activeQuest} acceptedCount={acceptedQuests.length} onNavigate={setActivePage} />
-              <SubjectPriorityCard subjects={progress.subjectPriorities} />
-              <article className="compact-card">
-                <span className="eyebrow">Tagesziel</span>
-                {nextDailyGoal ? <DailyGoalCard goal={nextDailyGoal} /> : <p>Alle Tagesziele erledigt.</p>}
-              </article>
-            </section>
-            <section className="content-card daily-quick-section">
-              <div className="section-heading">
-                <div>
-                  <span className="eyebrow">Daily Quick Quests</span>
-                  <h2>Kurze Abi-Wiederholung</h2>
-                </div>
-                <span className="daily-quick-counter">
-                  {dailyQuickCorrectCount}/{dailyQuickQuestionsForToday.length} richtig
-                </span>
-              </div>
-              <p className="daily-quick-reward-note">
-                Beantworte alle 5 Daily-Fragen richtig und hole dir 30 Coins im Belohnungs-Tab ab. Noch offen:{" "}
-                {Math.max(0, dailyQuickQuestionsForToday.length - dailyQuickAnsweredCount)}.
-              </p>
-              <div className="daily-quick-grid daily-quick-grid--compact">
-                {renderDailyQuickList(dailyQuickQuestionsForToday.slice(0, 3), true)}
-              </div>
-              <button className="button button--ghost" type="button" onClick={() => { setActivePage("quests"); setQuestTab("daily"); }}>
-                Alle Daily Quick Quests
-              </button>
-            </section>
-            <section className="dashboard-summary-grid">
-              <DashboardCard label="Streak" value={`${streakState.currentStreak} Tage`} detail={`Bestwert: ${streakState.longestStreak}`} />
-              <DashboardCard label="Fokus heute" value={`${focusSummary.todayMinutes} Min`} detail="für Tagesziele" />
-              <DashboardCard label="Heute erledigt" value={completedToday} detail="abgeschlossene Quests" />
-            </section>
-            <section className="quick-actions">
-              <button className="quick-action-card" type="button" onClick={() => setActivePage("quests")}>
-                <strong>Neue Quest</strong>
-                <span>Planen und bewusst annehmen</span>
-              </button>
-              <button className="quick-action-card" type="button" onClick={() => setActivePage("focus")}>
-                <strong>Fokusmodus</strong>
-                <span>Ruhige Session öffnen</span>
-              </button>
-              <button className="quick-action-card" type="button" onClick={() => setActivePage("shop")}>
-                <strong>Shop</strong>
-                <span>Belohnungen ansehen</span>
-              </button>
-            </section>
-          </div>
+          <DashboardPage
+            activeMode={activeMode}
+            appState={appState}
+            focusText={subjectFocus.focus}
+            levelInfo={levelInfo}
+            nextUnlock={nextUnlock}
+            activeQuest={activeQuest}
+            acceptedCount={acceptedQuests.length}
+            subjects={progress.subjectPriorities}
+            nextDailyGoal={nextDailyGoal}
+            weeklyGoals={weeklyGoals}
+            quests={quests}
+            dailyQuickQuestions={dailyQuickQuestionsForToday}
+            dailyQuickAnsweredCount={dailyQuickAnsweredCount}
+            dailyQuickCorrectCount={dailyQuickCorrectCount}
+            streakState={streakState}
+            focusSummary={focusSummary}
+            completedToday={completedToday}
+            renderDailyQuickList={renderDailyQuickList}
+            onNavigate={setActivePage}
+            onOpenDaily={() => {
+              setActivePage("quests");
+              setQuestTab("daily");
+            }}
+            onSelectQuest={setSelectedQuest}
+          />
         ) : null}
 
         {activePage === "quests" ? (
@@ -1212,6 +1184,12 @@ function App() {
 
         {activePage === "progress" ? (
           <div className="page-stack">
+            <ModeAwareProgressPreview
+              activeMode={activeMode}
+              levelInfo={levelInfo}
+              streakState={streakState}
+              focusSummary={focusSummary}
+            />
             <div className="tabs" role="tablist" aria-label="Fortschrittsbereiche">
               <button className={progressTab === "overview" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("overview")}>Übersicht</button>
               <button className={progressTab === "claims" ? "tab tab--active" : "tab"} type="button" onClick={() => setProgressTab("claims")}>Belohnungen</button>
@@ -1318,6 +1296,18 @@ function App() {
               </section>
             ) : null}
           </div>
+        ) : null}
+
+        {activePage === "planning" ? (
+          <PlanningPage
+            activeMode={activeMode}
+            subjects={progress.subjectPriorities}
+            dailyGoals={dailyGoals}
+            weeklyGoals={weeklyGoals}
+            focusSummary={focusSummary}
+            onClaimDaily={(goalId) => handleClaimGoal("daily", goalId)}
+            onClaimWeekly={(goalId) => handleClaimGoal("weekly", goalId)}
+          />
         ) : null}
 
         {activePage === "settings" ? (
