@@ -3,10 +3,10 @@ import type { AppPage } from "../types";
 const navItems: Array<{ page: AppPage; label: string; mobileLabel: string; hint: string }> = [
   { page: "dashboard", label: "Dashboard", mobileLabel: "Start", hint: "Heute" },
   { page: "quests", label: "Quests", mobileLabel: "Quests", hint: "Planen" },
+  { page: "planning", label: "Stundenplan", mobileLabel: "Plan", hint: "Woche" },
   { page: "focus", label: "Fokusmodus", mobileLabel: "Fokus", hint: "Lernen" },
   { page: "shop", label: "Shop", mobileLabel: "Shop", hint: "Belohnungen" },
   { page: "progress", label: "Fortschritt", mobileLabel: "Rewards", hint: "Auswertung" },
-  { page: "planning", label: "Planung", mobileLabel: "Planung", hint: "Woche" },
   { page: "settings", label: "Einstellungen", mobileLabel: "Mehr", hint: "Faecher" },
 ];
 

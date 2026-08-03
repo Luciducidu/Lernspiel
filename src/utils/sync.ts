@@ -1,4 +1,4 @@
-import type { AccountState, AppState, Quest, SyncBundle, UserProgress } from "../types";
+import type { AccountState, AppState, Quest, SyncBundle, UserProgress, WeeklySchedule } from "../types";
 import { appDataVersion } from "./storage";
 
 const syncApiUrl = import.meta.env.VITE_SYNC_API_URL as string | undefined;
@@ -96,6 +96,31 @@ export function mergeSyncData(local: { quests: Quest[]; progress: UserProgress }
       dailyQuickBonusDates: [...new Set([...remote.progress.dailyQuickBonusDates, ...local.progress.dailyQuickBonusDates])],
       subjectPriorities: local.progress.subjectPriorities,
       soundEnabled: local.progress.soundEnabled,
+    },
+  };
+}
+
+function mergeSchedules(local: WeeklySchedule[], remote: WeeklySchedule[]): WeeklySchedule[] {
+  const schedules = new Map<string, WeeklySchedule>();
+  const scheduleKey = (schedule: WeeklySchedule) => `${schedule.weekId}:${schedule.appMode}`;
+  for (const schedule of remote) schedules.set(scheduleKey(schedule), schedule);
+  for (const schedule of local) {
+    const existing = schedules.get(scheduleKey(schedule));
+    if (!existing || Date.parse(schedule.updatedAt) >= Date.parse(existing.updatedAt)) {
+      schedules.set(scheduleKey(schedule), schedule);
+    }
+  }
+  return [...schedules.values()].sort((left, right) => right.weekId.localeCompare(left.weekId));
+}
+
+export function mergeSyncAppState(local: AppState, remote?: AppState): AppState {
+  if (!remote) return local;
+
+  return {
+    ...local,
+    global: {
+      ...local.global,
+      weeklySchedules: mergeSchedules(local.global.weeklySchedules ?? [], remote.global?.weeklySchedules ?? []),
     },
   };
 }

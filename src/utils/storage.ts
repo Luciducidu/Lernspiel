@@ -17,17 +17,19 @@ import type {
   SubjectId,
   SubjectPriority,
   UserProgress,
+  WeeklySchedule,
 } from "../types";
 import { normalizeQuestDuration } from "./durations";
 import { getLevelInfo, todayKey } from "./gameRules";
 import { getQuestAppMode, withQuestAppMode } from "./modeScopedQuestSelectors";
+import { normalizeWeeklySchedule } from "./weeklySchedule";
 
 const QUESTS_KEY = "lernquest.quests";
 const PROGRESS_KEY = "lernquest.progress";
 const META_KEY = "lernquest.meta";
 const ACCOUNT_KEY = "lernquest.account";
 const APP_STATE_KEY = "lernquest.appState";
-const APP_DATA_VERSION = 12;
+const APP_DATA_VERSION = 14;
 
 export const appDataVersion = APP_DATA_VERSION;
 
@@ -256,6 +258,16 @@ function normalizeWeeklyReflections(value: unknown): BrainworkoutWeeklyReflectio
     .filter((item) => Boolean(item.weekId));
 }
 
+function normalizeWeeklySchedules(value: unknown): WeeklySchedule[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(normalizeWeeklySchedule)
+    .filter((schedule): schedule is WeeklySchedule => schedule !== null);
+}
+
 function normalizeSessionHistory(value: unknown): SessionHistoryEntry[] {
   if (!Array.isArray(value)) {
     return [];
@@ -302,6 +314,7 @@ function makeGlobalState(progress: UserProgress): AppState["global"] {
     streak: progress.streak,
     longestStreak: progress.longestStreak,
     soundEnabled: progress.soundEnabled,
+    weeklySchedules: [],
   };
 }
 
@@ -387,6 +400,7 @@ function normalizeAppState(stored: Partial<AppState>): AppState {
       streak: clampNumber(stored.global?.streak, migrated.global.streak),
       longestStreak: clampNumber(stored.global?.longestStreak, migrated.global.longestStreak),
       soundEnabled: typeof stored.global?.soundEnabled === "boolean" ? stored.global.soundEnabled : migrated.global.soundEnabled,
+      weeklySchedules: normalizeWeeklySchedules(stored.global?.weeklySchedules ?? migrated.global.weeklySchedules),
     },
     abi: {
       ...migrated.abi,

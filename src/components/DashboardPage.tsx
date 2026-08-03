@@ -13,10 +13,12 @@ import type {
   Quest,
   StreakState,
   SubjectPrioritySetting,
+  WeeklySchedule,
 } from "../types";
 import { getQuestAppMode } from "../utils/modeScopedQuestSelectors";
 import { AbiDashboard } from "./AbiDashboard";
 import { BrainworkoutDashboard } from "./BrainworkoutDashboard";
+import { SchedulePulseCard } from "./SchedulePulseCard";
 
 interface DashboardPageProps {
   activeMode: AppMode;
@@ -30,6 +32,7 @@ interface DashboardPageProps {
   nextDailyGoal?: DailyGoal;
   weeklyGoals: DailyGoal[];
   currentWeeklyPlan?: BrainworkoutWeeklyPlan;
+  weeklySchedule?: WeeklySchedule;
   latestWeeklyReflection?: BrainworkoutWeeklyReflection;
   quests: Quest[];
   dailyQuickQuestions: MultipleChoiceQuestion[];
@@ -57,6 +60,7 @@ export function DashboardPage({
   nextDailyGoal,
   weeklyGoals,
   currentWeeklyPlan,
+  weeklySchedule,
   latestWeeklyReflection,
   quests,
   dailyQuickQuestions,
@@ -77,47 +81,53 @@ export function DashboardPage({
 
   if (activeMode === "brainworkout") {
     return (
-      <BrainworkoutDashboard
-        brainworkout={appState.brainworkout}
-        levelInfo={levelInfo}
-        nextUnlock={nextUnlock}
-        activeQuest={activeQuest}
-        acceptedCount={acceptedCount}
-        recommendedQuest={recommendedBrainworkoutQuest}
-        quests={brainworkoutQuests}
-        weeklyGoals={weeklyGoals}
-        currentWeeklyPlan={currentWeeklyPlan}
-        latestWeeklyReflection={latestWeeklyReflection}
-        streakState={streakState}
-        focusSummary={focusSummary}
-        onNavigate={onNavigate}
-        onSelectQuest={onSelectQuest}
-        onCopyReflectionPrompt={onCopyReflectionPrompt}
-      />
+      <div className="page-stack">
+        <SchedulePulseCard schedule={weeklySchedule} onNavigate={onNavigate} />
+        <BrainworkoutDashboard
+          brainworkout={appState.brainworkout}
+          levelInfo={levelInfo}
+          nextUnlock={nextUnlock}
+          activeQuest={activeQuest}
+          acceptedCount={acceptedCount}
+          recommendedQuest={recommendedBrainworkoutQuest}
+          quests={brainworkoutQuests}
+          weeklyGoals={weeklyGoals}
+          currentWeeklyPlan={currentWeeklyPlan}
+          latestWeeklyReflection={latestWeeklyReflection}
+          streakState={streakState}
+          focusSummary={focusSummary}
+          onNavigate={onNavigate}
+          onSelectQuest={onSelectQuest}
+          onCopyReflectionPrompt={onCopyReflectionPrompt}
+        />
+      </div>
     );
   }
 
   return (
-    <AbiDashboard
-      focusText={focusText}
-      levelInfo={levelInfo}
-      nextUnlock={nextUnlock}
-      activeQuest={activeQuest}
-      acceptedCount={acceptedCount}
-      subjects={subjects}
-      nextDailyGoal={nextDailyGoal}
-      weeklyGoals={weeklyGoals}
-      recommendedQuest={recommendedAbiQuest}
-      dailyQuickQuestions={dailyQuickQuestions}
-      dailyQuickAnsweredCount={dailyQuickAnsweredCount}
-      dailyQuickCorrectCount={dailyQuickCorrectCount}
-      streakState={streakState}
-      focusSummary={focusSummary}
-      completedToday={completedToday}
-      renderDailyQuickList={renderDailyQuickList}
-      onNavigate={onNavigate}
-      onOpenDaily={onOpenDaily}
-      onSelectQuest={onSelectQuest}
-    />
+    <div className="page-stack">
+      <SchedulePulseCard schedule={weeklySchedule} onNavigate={onNavigate} />
+      <AbiDashboard
+        focusText={focusText}
+        levelInfo={levelInfo}
+        nextUnlock={nextUnlock}
+        activeQuest={activeQuest}
+        acceptedCount={acceptedCount}
+        subjects={subjects}
+        nextDailyGoal={nextDailyGoal}
+        weeklyGoals={weeklyGoals}
+        recommendedQuest={recommendedAbiQuest}
+        dailyQuickQuestions={dailyQuickQuestions}
+        dailyQuickAnsweredCount={dailyQuickAnsweredCount}
+        dailyQuickCorrectCount={dailyQuickCorrectCount}
+        streakState={streakState}
+        focusSummary={focusSummary}
+        completedToday={completedToday}
+        renderDailyQuickList={renderDailyQuickList}
+        onNavigate={onNavigate}
+        onOpenDaily={onOpenDaily}
+        onSelectQuest={onSelectQuest}
+      />
+    </div>
   );
 }

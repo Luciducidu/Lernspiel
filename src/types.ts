@@ -45,6 +45,56 @@ export type WeeklyPlanStatus = "draft" | "active" | "completed";
 
 export type BrainworkoutReflectionMood = "good" | "mixed" | "hard";
 
+export type WeekdayId = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+
+export type ScheduleBlockKind = "learning" | "appointment" | "obligation" | "personal" | "break";
+
+export type ScheduleBlockStatus = "planned" | "completed" | "missed";
+
+export type ScheduleFeedbackMood = "easy" | "okay" | "hard";
+
+export interface ScheduleFeedback {
+  result: Exclude<ScheduleBlockStatus, "planned">;
+  mood: ScheduleFeedbackMood;
+  note?: string;
+  submittedAt: string;
+}
+
+export interface WeeklySchedulePreferences {
+  wakeUpTime: string;
+  learningStartTime: string;
+  learningEndTime: string;
+  learningDays: WeekdayId[];
+  plannedLearningBlocks: 3 | 5 | 7;
+}
+
+export interface WeeklyScheduleBlock {
+  id: string;
+  title: string;
+  day: WeekdayId;
+  startTime: string;
+  durationMinutes: number;
+  kind: ScheduleBlockKind;
+  status: ScheduleBlockStatus;
+  questId?: string;
+  description?: string;
+  feedback?: ScheduleFeedback;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WeeklySchedule {
+  id: string;
+  weekId: string;
+  appMode: AppMode;
+  startDate: string;
+  endDate: string;
+  preferences: WeeklySchedulePreferences;
+  blocks: WeeklyScheduleBlock[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BrainworkoutWeeklyPlan {
   weekId: string;
   startDate: string;
@@ -107,6 +157,7 @@ export interface AppGlobalState {
   streak: number;
   longestStreak: number;
   soundEnabled: boolean;
+  weeklySchedules: WeeklySchedule[];
 }
 
 export interface ModeProgressState {

@@ -63,6 +63,7 @@ import type {
   Subject,
   SubjectPriority,
   SubjectPrioritySetting,
+  WeeklySchedule,
 } from "./types";
 import { answerDailyQuickQuest, getDailyQuickQuestionsForDate, getDailyQuickState } from "./utils/dailyQuick";
 import {
@@ -96,7 +97,8 @@ import {
   recommendedDurationForQuest,
 } from "./utils/durations";
 import { buildStreakRewards, claimStreakReward, getNextStreakReward } from "./utils/streakRewards";
-import { createSyncBundle, fetchRemoteBundle, hashSyncSecret, mergeSyncData, normalizeUsername, saveRemoteBundle } from "./utils/sync";
+import { createSyncBundle, fetchRemoteBundle, hashSyncSecret, mergeSyncAppState, mergeSyncData, normalizeUsername, saveRemoteBundle } from "./utils/sync";
+import { getWeekRange } from "./utils/weeklySchedule";
 
 const emptyForm = {
   type: "study" as QuestType,
@@ -210,6 +212,10 @@ function App() {
   const premiumRewardItems = premiumItems.filter((item) => !item.isLuckyChest);
   const currentWeekId = getWeekKey();
   const currentWeeklyPlan = appState.brainworkout.weeklyPlans.find((plan) => plan.weekId === currentWeekId);
+  const currentScheduleRange = getWeekRange();
+  const currentWeeklySchedule = appState.global.weeklySchedules.find(
+    (schedule) => schedule.weekId === currentScheduleRange.weekId && schedule.appMode === activeMode,
+  );
   const latestWeeklyReflection = [...appState.brainworkout.weeklyReflections].sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0];
   const modeSessions = getModeSessions(progress.sessionHistory, activeMode);
   const modeStatsSummary = buildStatsSummary({ ...progress, sessionHistory: modeSessions });
@@ -230,6 +236,7 @@ function App() {
         streak: progress.streak,
         longestStreak: progress.longestStreak,
         soundEnabled: progress.soundEnabled,
+        weeklySchedules: current.global.weeklySchedules,
       };
 
       if (current.activeMode === "brainworkout") {
@@ -290,14 +297,9 @@ function App() {
     }
 
     if (activeQuest?.status === "in_progress") {
-      const shouldSwitch = window.confirm(
-        "Eine Fokus-Quest läuft gerade. Wenn du den Modus wechselst, bleibt die Quest gespeichert und du kannst später zurückkehren. Jetzt wechseln?",
-      );
-      if (!shouldSwitch) {
-        return;
-      }
-      setActiveQuestId(null);
-      setActivePage("dashboard");
+      window.alert("Eine Fokus-Quest läuft gerade. Beende oder pausiere sie zuerst, bevor du den Modus wechselst.");
+      setActivePage("focus");
+      return;
     }
 
     const target = appState[mode];
@@ -374,6 +376,22 @@ function App() {
       },
     }));
     setToast("Brainworkout-Wochenplanung gespeichert.");
+  }
+
+  function handleSaveWeeklySchedule(schedule: WeeklySchedule) {
+    setAppState((current) => ({
+      ...current,
+      global: {
+        ...current.global,
+        weeklySchedules: [
+          schedule,
+          ...current.global.weeklySchedules.filter(
+            (entry) => entry.weekId !== schedule.weekId || entry.appMode !== schedule.appMode,
+          ),
+        ],
+      },
+    }));
+    setToast("Stundenplan gespeichert. Du kannst Bloecke jederzeit verschieben oder auswerten.");
   }
 
   function handleSaveWeeklyReflection(
@@ -895,9 +913,11 @@ Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 ko
       }
 
       const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
+      const mergedAppState = mergeSyncAppState(appState, remote?.appState);
       setQuests(merged.quests);
       setProgress(merged.progress);
-      await saveRemoteBundle(createSyncBundle(baseAccount, merged.quests, merged.progress, appState));
+      setAppState(mergedAppState);
+      await saveRemoteBundle(createSyncBundle(baseAccount, merged.quests, merged.progress, mergedAppState));
       setAccount({
         mode: "account",
         username,
@@ -931,9 +951,11 @@ Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 ko
         throw new Error("Passwort passt nicht mehr zum Konto.");
       }
       const merged = remote ? mergeSyncData({ quests, progress }, remote) : { quests, progress };
+      const mergedAppState = mergeSyncAppState(appState, remote?.appState);
       setQuests(merged.quests);
       setProgress(merged.progress);
-      await saveRemoteBundle(createSyncBundle(account, merged.quests, merged.progress, appState));
+      setAppState(mergedAppState);
+      await saveRemoteBundle(createSyncBundle(account, merged.quests, merged.progress, mergedAppState));
       setAccount((current) => ({
         ...current,
         lastSyncedAt: new Date().toISOString(),
@@ -1031,7 +1053,7 @@ Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 ko
     focus: "Fokusmodus",
     shop: "Shop",
     progress: "Fortschritt",
-    planning: "Planung",
+    planning: "Stundenplan",
     settings: "Einstellungen",
   };
 
@@ -1067,6 +1089,7 @@ Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 ko
             nextDailyGoal={nextDailyGoal}
             weeklyGoals={weeklyGoals}
             currentWeeklyPlan={currentWeeklyPlan}
+            weeklySchedule={currentWeeklySchedule}
             latestWeeklyReflection={latestWeeklyReflection}
             quests={quests}
             dailyQuickQuestions={dailyQuickQuestionsForToday}
@@ -1602,12 +1625,14 @@ Bitte erkenne Muster, schlage eine realistische Wochenplanung vor und nenne 3 ko
             dailyGoals={dailyGoals}
             weeklyGoals={weeklyGoals}
             focusSummary={focusSummary}
-            quests={getModeScopedQuests(quests, "brainworkout")}
+            quests={getModeScopedQuests(quests, activeMode)}
+            weeklySchedule={currentWeeklySchedule}
             currentWeeklyPlan={currentWeeklyPlan}
             latestWeeklyReflection={latestWeeklyReflection}
             onClaimDaily={(goalId) => handleClaimGoal("daily", goalId)}
             onClaimWeekly={(goalId) => handleClaimGoal("weekly", goalId)}
             onSelectQuest={setSelectedQuest}
+            onSaveWeeklySchedule={handleSaveWeeklySchedule}
             onSaveWeeklyPlan={handleSaveWeeklyPlan}
             onSaveWeeklyReflection={handleSaveWeeklyReflection}
             onCopyReflectionPrompt={handleCopyReflectionPrompt}
